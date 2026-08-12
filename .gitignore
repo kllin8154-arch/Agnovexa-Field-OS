@@ -1,0 +1,24 @@
+/.gradle/
+/.idea/
+/.kotlin/
+/local.properties
+**/build/
+*.iml
+*.keystore
+*.jks
+*.apk
+*.aab
+*.zip
+.env
+.env.*
+secrets.properties
+keystore.properties
+
+# 内部研发资料不进入公开仓库
+/docs/
+/design/
+/templates/
+/themes/
+/原型/
+/Agnovexa_Field_OS_第一阶段执行提示词.md
+/Agnovexa_Field_OS_个人版_开发总提示词.md
