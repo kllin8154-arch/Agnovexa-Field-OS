@@ -4,6 +4,14 @@ Agnovexa Field OS 是一款面向个人现场工程师的 Android 本地优先�
 
 项目仍处于早期版本，核心数据默认保存在设备本机，不要求注册账号，也不依赖自建后端。
 
+## 下载安装
+
+[下载最新 APK](https://github.com/kllin8154-arch/Agnovexa-Field-OS/releases/latest/download/Agnovexa-Field-OS.apk)
+
+支持 Android 8.0（API 26）及以上系统。首次安装时，Android 可能要求允许浏览器或文件管理器“安装未知应用”。
+
+当前 `v0.1.0` 是公开预览版，安装包使用 Android 调试证书签名。后续切换为正式发布证书时可能需要先卸载预览版；卸载前请先在应用内导出备份。
+
 ## 主要能力
 
 - 项目、任务、问题、服务器、命令、知识和日报的本地 CRUD
