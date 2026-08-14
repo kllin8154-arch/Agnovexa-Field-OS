@@ -18,6 +18,7 @@ import com.kllin.agnovexa.fieldos.domain.Command
 import com.kllin.agnovexa.fieldos.domain.CommandRiskClassifier
 import com.kllin.agnovexa.fieldos.domain.DailyReport
 import com.kllin.agnovexa.fieldos.domain.DailyReportComposer
+import com.kllin.agnovexa.fieldos.domain.DeploymentExampleCatalog
 import com.kllin.agnovexa.fieldos.domain.DeploymentImportDraft
 import com.kllin.agnovexa.fieldos.domain.FieldRepository
 import com.kllin.agnovexa.fieldos.domain.FieldTask
@@ -380,6 +381,45 @@ class FieldRepositoryImpl @Inject constructor(
                 }
             }
             log(projectId, "DEPLOYMENT_DOCUMENT", knowledgeId, "IMPORTED", "导入部署文档：${draft.title}", summary, now)
+        }
+    }
+
+    override suspend fun installDeploymentExample() {
+        require(dao.allProjects().none { it.id == DeploymentExampleCatalog.PROJECT_ID }) {
+            "示例闭环已经存在，可直接前往项目和运维模块查看"
+        }
+        val now = System.currentTimeMillis()
+        val example = DeploymentExampleCatalog.create(now)
+        validateTechnologyIds(example.technologyIds)
+        database.withTransaction {
+            dao.upsertProject(example.project.toEntity(now))
+            dao.upsertProjectTechnologies(example.technologyIds.sorted().map { ProjectTechnologyEntity(example.project.id, it) })
+            example.servers.forEach { dao.upsertServer(it.toEntity(now)) }
+            example.tasks.forEach { dao.upsertTask(it.toEntity(now)) }
+            example.issues.forEach { dao.upsertIssue(it.toEntity(now)) }
+            example.commands.forEach { command ->
+                dao.upsertCommand(command.toEntity())
+                dao.index(SearchFtsEntity(command.id, "COMMAND", command.title, "${command.command} ${command.description}", command.tags))
+            }
+            example.knowledge.forEach { knowledge ->
+                dao.upsertKnowledge(knowledge.toEntity())
+                dao.index(SearchFtsEntity(knowledge.id, "KNOWLEDGE", knowledge.title, knowledge.content, knowledge.tags))
+            }
+            example.activities.forEach { activity ->
+                dao.upsertActivity(
+                    ActivityLogEntity(
+                        activity.id,
+                        activity.projectId,
+                        activity.entityType,
+                        activity.entityId,
+                        activity.actionType,
+                        activity.title,
+                        activity.description,
+                        activity.occurredAt,
+                    ),
+                )
+            }
+            dao.upsertReport(example.report.toEntity())
         }
     }
 

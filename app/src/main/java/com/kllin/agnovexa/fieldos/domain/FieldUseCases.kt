@@ -32,5 +32,6 @@ class FieldUseCases @Inject constructor(private val repository: FieldRepository)
     suspend fun deleteDailyReport(id: String) = repository.deleteDailyReport(id)
     suspend fun importDeploymentDocument(draft: DeploymentImportDraft, projectId: String?, importCommands: Boolean) =
         repository.importDeploymentDocument(draft, projectId, importCommands)
+    suspend fun installDeploymentExample() = repository.installDeploymentExample()
     suspend fun seedBuiltinCommands() = repository.seedBuiltinCommands()
 }

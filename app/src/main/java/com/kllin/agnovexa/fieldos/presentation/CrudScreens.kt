@@ -38,6 +38,7 @@ import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.ErrorOutline
 import androidx.compose.material.icons.filled.FolderOpen
 import androidx.compose.material.icons.filled.Inventory2
+import androidx.compose.material.icons.filled.Menu
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.TaskAlt
 import androidx.compose.material.icons.filled.Terminal
@@ -101,6 +102,7 @@ fun CrudModuleScreen(
     viewModel: FieldOsViewModel,
     onBack: () -> Unit,
     onOpenAi: () -> Unit,
+    onOpenNavigation: (() -> Unit)? = null,
 ) {
     val workspace = state.workspace
     var editing by remember(kind) { mutableStateOf<Any?>(null) }
@@ -122,7 +124,7 @@ fun CrudModuleScreen(
         "commands" -> commands.size; "knowledge" -> knowledge.size; "reports" -> reports.size; else -> 0
     }
     Scaffold(
-        topBar = { ModuleTopBar(title, onBack, if (kind == "reports") onOpenAi else null) },
+        topBar = { ModuleTopBar(title, onBack, if (kind == "reports") onOpenAi else null, onOpenNavigation) },
         floatingActionButton = {
             FloatingActionButton({ editing = null; showEditor = true }) { Icon(Icons.Default.Add, "新增$title") }
         },
@@ -299,9 +301,12 @@ private fun ProjectBadge(label: String) {
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun ModuleTopBar(title: String, onBack: () -> Unit, onAi: (() -> Unit)?) = TopAppBar(
+private fun ModuleTopBar(title: String, onBack: () -> Unit, onAi: (() -> Unit)?, onOpenNavigation: (() -> Unit)?) = TopAppBar(
     title = { Text(title, fontWeight = FontWeight.Bold, maxLines = 1) },
-    navigationIcon = { IconButton(onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, "返回上一模块") } },
+    navigationIcon = {
+        if (onOpenNavigation != null) IconButton(onOpenNavigation) { Icon(Icons.Default.Menu, "打开功能栏") }
+        else IconButton(onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, "返回上一模块") }
+    },
     actions = { if (onAi != null) IconButton(onAi) { Icon(Icons.Default.AutoAwesome, "使用 AI 生成") } },
     colors = TopAppBarDefaults.topAppBarColors(containerColor = MaterialTheme.colorScheme.background),
 )

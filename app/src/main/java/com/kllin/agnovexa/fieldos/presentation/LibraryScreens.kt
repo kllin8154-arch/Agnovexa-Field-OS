@@ -34,6 +34,7 @@ import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.FolderOpen
 import androidx.compose.material.icons.filled.Inventory2
+import androidx.compose.material.icons.filled.Menu
 import androidx.compose.material.icons.filled.RocketLaunch
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Terminal
@@ -85,7 +86,7 @@ import java.time.format.DateTimeFormatter
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun CommandLibraryScreen(state: FieldOsUiState, viewModel: FieldOsViewModel, onBack: () -> Unit) {
+fun CommandLibraryScreen(state: FieldOsUiState, viewModel: FieldOsViewModel, onBack: () -> Unit, onOpenNavigation: (() -> Unit)? = null) {
     var query by remember { mutableStateOf("") }
     var category by remember { mutableStateOf("全部") }
     var favoritesOnly by remember { mutableStateOf(false) }
@@ -115,7 +116,7 @@ fun CommandLibraryScreen(state: FieldOsUiState, viewModel: FieldOsViewModel, onB
     }
 
     Scaffold(
-        topBar = { LibraryTopBar("命令工作台", "搜索、筛选、收藏与整包复制", onBack) },
+        topBar = { LibraryTopBar("命令工作台", "搜索、筛选、收藏与整包复制", onBack, onOpenNavigation) },
         floatingActionButton = { FloatingActionButton({ editing = null; showEditor = true }) { Icon(Icons.Default.Add, "新增命令") } },
     ) { padding ->
         LazyColumn(
@@ -347,7 +348,7 @@ private fun CommandDetailDialog(command: Command, onDismiss: () -> Unit, onCopy:
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun KnowledgeLibraryScreen(state: FieldOsUiState, viewModel: FieldOsViewModel, onBack: () -> Unit) {
+fun KnowledgeLibraryScreen(state: FieldOsUiState, viewModel: FieldOsViewModel, onBack: () -> Unit, onOpenNavigation: (() -> Unit)? = null) {
     var query by remember { mutableStateOf("") }
     var type by remember { mutableStateOf("ALL") }
     var projectId by remember { mutableStateOf<String?>(null) }
@@ -368,7 +369,7 @@ fun KnowledgeLibraryScreen(state: FieldOsUiState, viewModel: FieldOsViewModel, o
     }
 
     Scaffold(
-        topBar = { LibraryTopBar("知识中心", "项目资料、故障复盘、部署文档与 Runbook", onBack) },
+        topBar = { LibraryTopBar("知识中心", "项目资料、故障复盘、部署文档与 Runbook", onBack, onOpenNavigation) },
         floatingActionButton = { FloatingActionButton({ editing = null; showEditor = true }) { Icon(Icons.Default.Add, "新增知识") } },
     ) { padding ->
         LazyColumn(
@@ -593,9 +594,12 @@ private fun KnowledgeDetailDialog(value: Knowledge, project: Project?, onDismiss
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun LibraryTopBar(title: String, subtitle: String, onBack: () -> Unit) = TopAppBar(
+private fun LibraryTopBar(title: String, subtitle: String, onBack: () -> Unit, onOpenNavigation: (() -> Unit)?) = TopAppBar(
     title = { Column { Text(title, fontWeight = FontWeight.Bold); Text(subtitle, color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 10.sp, maxLines = 1, overflow = TextOverflow.Ellipsis) } },
-    navigationIcon = { IconButton(onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, "返回") } },
+    navigationIcon = {
+        if (onOpenNavigation != null) IconButton(onOpenNavigation) { Icon(Icons.Default.Menu, "打开功能栏") }
+        else IconButton(onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, "返回") }
+    },
     colors = TopAppBarDefaults.topAppBarColors(containerColor = MaterialTheme.colorScheme.background),
 )
 

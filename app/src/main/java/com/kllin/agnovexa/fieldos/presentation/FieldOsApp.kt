@@ -23,6 +23,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
@@ -40,9 +41,12 @@ import androidx.compose.material.icons.filled.Dns
 import androidx.compose.material.icons.filled.Error
 import androidx.compose.material.icons.filled.Folder
 import androidx.compose.material.icons.filled.Home
+import androidx.compose.material.icons.filled.Hub
+import androidx.compose.material.icons.filled.Menu
 import androidx.compose.material.icons.filled.Palette
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Restore
+import androidx.compose.material.icons.filled.RocketLaunch
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.SmartToy
@@ -58,12 +62,16 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.DrawerValue
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.NavigationBar
-import androidx.compose.material3.NavigationBarItem
-import androidx.compose.material3.NavigationBarItemDefaults
+import androidx.compose.material3.ModalDrawerSheet
+import androidx.compose.material3.ModalNavigationDrawer
+import androidx.compose.material3.NavigationDrawerItem
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.PermanentDrawerSheet
+import androidx.compose.material3.PermanentNavigationDrawer
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
@@ -71,11 +79,13 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
+import androidx.compose.material3.rememberDrawerState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
@@ -89,7 +99,7 @@ import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import androidx.navigation.NavDestination.Companion.hierarchy
+import androidx.compose.ui.unit.sp
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
@@ -103,16 +113,45 @@ import com.kllin.agnovexa.fieldos.domain.ThemeMode
 import com.kllin.agnovexa.fieldos.domain.WorkspaceSnapshot
 import java.time.LocalDateTime
 import java.time.format.DateTimeFormatter
+import kotlinx.coroutines.launch
 
 private data class NavItem(val route: String, val label: String, val icon: ImageVector)
+private data class NavSection(val label: String, val items: List<NavItem>)
 
-private val mainNav = listOf(
-    NavItem("home", "首页", Icons.Default.Home),
-    NavItem("ai", "AI", Icons.Default.SmartToy),
-    NavItem("projects", "项目", Icons.Default.Folder),
-    NavItem("tools", "运维", Icons.Default.Dashboard),
-    NavItem("knowledge", "知识", Icons.Default.Book),
+private val navigationSections = listOf(
+    NavSection(
+        "工作台",
+        listOf(
+            NavItem("home", "首页", Icons.Default.Home),
+            NavItem("projects", "项目", Icons.Default.Folder),
+            NavItem("tools", "运维", Icons.Default.Dashboard),
+            NavItem("ai", "AI 助手", Icons.Default.SmartToy),
+            NavItem("ai-provider", "AI 接口", Icons.Default.Hub),
+        ),
+    ),
+    NavSection(
+        "现场记录",
+        listOf(
+            NavItem("records/tasks", "任务", Icons.Default.Task),
+            NavItem("records/issues", "现场问题", Icons.Default.Error),
+            NavItem("records/servers", "服务器", Icons.Default.Dns),
+            NavItem("records/commands", "命令库", Icons.Default.Code),
+            NavItem("records/knowledge", "知识库", Icons.Default.Book),
+            NavItem("records/reports", "日报", Icons.AutoMirrored.Filled.Article),
+        ),
+    ),
+    NavSection(
+        "工具与系统",
+        listOf(
+            NavItem("search", "统一搜索", Icons.Default.Search),
+            NavItem("deployment-example", "部署示例", Icons.Default.RocketLaunch),
+            NavItem("deployment-import", "导入部署文档", Icons.Default.UploadFile),
+            NavItem("profile", "设置与本地数据", Icons.Default.Settings),
+        ),
+    ),
 )
+
+private val commandDockRoutes = setOf("home", "projects", "tools", "knowledge")
 
 @Composable
 fun FieldOsApp(state: FieldOsUiState, viewModel: FieldOsViewModel) {
@@ -121,92 +160,64 @@ fun FieldOsApp(state: FieldOsUiState, viewModel: FieldOsViewModel) {
     val snackbar = remember { SnackbarHostState() }
     var showBoot by rememberSaveable { mutableStateOf(true) }
     val currentRoute = backStack?.destination?.route
-    val showCommandDock = currentRoute in mainNav.map(NavItem::route) && currentRoute != "ai"
+    val selectedRoute = if (currentRoute == "records/{kind}") {
+        "records/${backStack?.arguments?.getString("kind").orEmpty()}"
+    } else {
+        currentRoute
+    }
     val density = LocalDensity.current
-    val compactNavigation = FieldLayoutPolicy.isCompact(LocalWindowInfo.current.containerSize.width / density.density, density.fontScale)
+    val widthDp = LocalWindowInfo.current.containerSize.width / density.density
+    val permanentNavigation = FieldLayoutPolicy.usesPermanentNavigation(widthDp, density.fontScale)
+    val drawerState = rememberDrawerState(DrawerValue.Closed)
+    val scope = rememberCoroutineScope()
+    val openNavigation: (() -> Unit)? = if (permanentNavigation) null else ({ scope.launch { drawerState.open() } })
+    val navigate: (String) -> Unit = { route ->
+        if (selectedRoute != route) {
+            navController.navigate(route) {
+                launchSingleTop = true
+                popUpTo("home") { saveState = false }
+                restoreState = false
+            }
+        }
+        if (!permanentNavigation) scope.launch { drawerState.close() }
+    }
     LaunchedEffect(state.message) {
         state.message?.let { snackbar.showSnackbar(it); viewModel.clearMessage() }
     }
     Box(Modifier.fillMaxSize()) {
         ConceptBackdrop()
-        Scaffold(
-            containerColor = Color.Transparent,
-            snackbarHost = { SnackbarHost(snackbar) },
-            bottomBar = {
-                Column {
-                    if (showCommandDock) {
-                        ConceptCommandDock(enabled = !state.busy) { prompt ->
-                            viewModel.sendAiMessage(prompt)
-                            navController.navigate("ai") {
-                                launchSingleTop = true
-                                popUpTo("home") { saveState = false }
-                            }
-                        }
+        val content: @Composable () -> Unit = {
+            FieldOsContent(
+                state = state,
+                viewModel = viewModel,
+                selectedRoute = selectedRoute,
+                snackbar = snackbar,
+                openNavigation = openNavigation,
+                navigate = navigate,
+                popBackStack = navController::popBackStack,
+                replayBoot = { showBoot = true },
+                navController = navController,
+            )
+        }
+        if (permanentNavigation) {
+            PermanentNavigationDrawer(
+                drawerContent = {
+                    PermanentDrawerSheet(modifier = Modifier.width(292.dp)) {
+                        FieldNavigationDrawer(selectedRoute, navigate)
                     }
-                    NavigationBar(containerColor = MaterialTheme.colorScheme.background.copy(alpha = .98f), tonalElevation = 0.dp) {
-                        mainNav.forEach { item ->
-                            val selected = backStack?.destination?.hierarchy?.any { it.route == item.route } == true
-                            NavigationBarItem(
-                                selected = selected,
-                                alwaysShowLabel = !compactNavigation,
-                                onClick = {
-                                    if (backStack?.destination?.route != item.route) {
-                                        navController.navigate(item.route) {
-                                            launchSingleTop = true
-                                            popUpTo("home") { saveState = false }
-                                            restoreState = false
-                                        }
-                                    }
-                                },
-                                icon = { Icon(item.icon, item.label) },
-                                label = { Text(item.label, maxLines = 1, overflow = TextOverflow.Ellipsis) },
-                                colors = NavigationBarItemDefaults.colors(
-                                    selectedIconColor = MaterialTheme.colorScheme.onPrimary,
-                                    selectedTextColor = MaterialTheme.colorScheme.primary,
-                                    indicatorColor = MaterialTheme.colorScheme.primary,
-                                    unselectedIconColor = MaterialTheme.colorScheme.onSurfaceVariant,
-                                    unselectedTextColor = MaterialTheme.colorScheme.onSurfaceVariant,
-                                ),
-                            )
-                        }
+                },
+                content = content,
+            )
+        } else {
+            ModalNavigationDrawer(
+                drawerState = drawerState,
+                drawerContent = {
+                    ModalDrawerSheet(modifier = Modifier.fillMaxWidth(.88f).widthIn(max = 320.dp)) {
+                        FieldNavigationDrawer(selectedRoute, navigate)
                     }
-                }
-            },
-        ) { padding ->
-            Box(Modifier.fillMaxSize().padding(padding)) {
-                NavHost(
-                    navController = navController,
-                    startDestination = "home",
-                    enterTransition = { fadeIn(tween(300)) + slideInVertically(tween(330), initialOffsetY = { it / 24 }) },
-                    exitTransition = { fadeOut(tween(160)) },
-                    popEnterTransition = { fadeIn(tween(240)) },
-                    popExitTransition = { fadeOut(tween(140)) },
-                ) {
-                    composable("home") { ConceptHomeScreen(state, navController::navigate) { showBoot = true } }
-                    composable("projects") { CrudModuleScreen("projects", state, viewModel, { navController.popBackStack() }, { navController.navigate("ai") }) }
-                    composable("ai") { ConnectedAiScreen(state, viewModel) { navController.navigate("search") } }
-                    composable("tools") { ConceptOperationsScreen(state, navController::navigate) }
-                    composable("knowledge") { ConceptKnowledgeScreen(state, navController::navigate) }
-                    composable("profile") { ProfileSettingsScreen(state, viewModel) }
-                    composable("records/{kind}") { entry ->
-                        when (val kind = entry.arguments?.getString("kind").orEmpty()) {
-                            "commands" -> CommandLibraryScreen(state, viewModel) { navController.popBackStack() }
-                            "knowledge" -> KnowledgeLibraryScreen(state, viewModel) { navController.popBackStack() }
-                            else -> CrudModuleScreen(kind, state, viewModel, { navController.popBackStack() }, { navController.navigate("ai") })
-                        }
-                    }
-                    composable("search") { SearchScreen(state, viewModel) { navController.popBackStack() } }
-                    composable("deployment-import") { DeploymentImportScreen(state, viewModel) { navController.popBackStack() } }
-                }
-                if (state.busy) {
-                    Box(
-                        Modifier.fillMaxSize().background(Color.Black.copy(alpha = .48f)),
-                        contentAlignment = Alignment.Center,
-                    ) {
-                        CircularProgressIndicator(color = MaterialTheme.colorScheme.primary)
-                    }
-                }
-            }
+                },
+                content = content,
+            )
         }
         AnimatedVisibility(
             visible = showBoot,
@@ -214,6 +225,124 @@ fun FieldOsApp(state: FieldOsUiState, viewModel: FieldOsViewModel) {
             exit = fadeOut(tween(620)),
         ) {
             AgnovexaBootSequence { showBoot = false }
+        }
+    }
+}
+
+@Composable
+private fun FieldOsContent(
+    state: FieldOsUiState,
+    viewModel: FieldOsViewModel,
+    selectedRoute: String?,
+    snackbar: SnackbarHostState,
+    openNavigation: (() -> Unit)?,
+    navigate: (String) -> Unit,
+    popBackStack: () -> Boolean,
+    replayBoot: () -> Unit,
+    navController: androidx.navigation.NavHostController,
+) {
+    Scaffold(
+        containerColor = Color.Transparent,
+        snackbarHost = { SnackbarHost(snackbar) },
+        bottomBar = {
+            if (selectedRoute in commandDockRoutes) {
+                ConceptCommandDock(enabled = !state.busy) { prompt ->
+                    viewModel.sendAiMessage(prompt)
+                    navigate("ai")
+                }
+            }
+        },
+    ) { padding ->
+        Box(Modifier.fillMaxSize().padding(padding)) {
+            NavHost(
+                navController = navController,
+                startDestination = "home",
+                enterTransition = { fadeIn(tween(300)) + slideInVertically(tween(330), initialOffsetY = { it / 24 }) },
+                exitTransition = { fadeOut(tween(160)) },
+                popEnterTransition = { fadeIn(tween(240)) },
+                popExitTransition = { fadeOut(tween(140)) },
+            ) {
+                composable("home") { ConceptHomeScreen(state, navigate, replayBoot, openNavigation) }
+                composable("projects") { CrudModuleScreen("projects", state, viewModel, { popBackStack() }, { navigate("ai") }, openNavigation) }
+                composable("ai") { ConnectedAiScreen(state, viewModel, { navigate("ai-provider") }, { navigate("projects") }, openNavigation) }
+                composable("ai-provider") { AiProviderSettingsScreen(state, viewModel, openNavigation) }
+                composable("tools") { ConceptOperationsScreen(state, navigate, openNavigation) }
+                composable("knowledge") { ConceptKnowledgeScreen(state, navigate, openNavigation) }
+                composable("profile") { ProfileSettingsScreen(state, viewModel, openNavigation) }
+                composable("deployment-example") { DeploymentExampleScreen(state, viewModel, openNavigation, navigate) }
+                composable("records/{kind}") { entry ->
+                    when (val kind = entry.arguments?.getString("kind").orEmpty()) {
+                        "commands" -> CommandLibraryScreen(state, viewModel, { popBackStack() }, openNavigation)
+                        "knowledge" -> KnowledgeLibraryScreen(state, viewModel, { popBackStack() }, openNavigation)
+                        else -> CrudModuleScreen(kind, state, viewModel, { popBackStack() }, { navigate("ai") }, openNavigation)
+                    }
+                }
+                composable("search") { SearchScreen(state, viewModel, { popBackStack() }, openNavigation) }
+                composable("deployment-import") { DeploymentImportScreen(state, viewModel, { popBackStack() }, openNavigation) }
+            }
+            if (state.busy && selectedRoute != "ai") {
+                Box(
+                    Modifier.fillMaxSize().background(Color.Black.copy(alpha = .48f)),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    CircularProgressIndicator(color = MaterialTheme.colorScheme.primary)
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun FieldNavigationDrawer(selectedRoute: String?, onNavigate: (String) -> Unit) {
+    LazyColumn(
+        modifier = Modifier.fillMaxSize(),
+        contentPadding = PaddingValues(vertical = 14.dp),
+        verticalArrangement = Arrangement.spacedBy(3.dp),
+    ) {
+        item {
+            Column(Modifier.padding(horizontal = 20.dp, vertical = 12.dp)) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Icon(Icons.Default.Android, null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(30.dp))
+                    Spacer(Modifier.width(10.dp))
+                    Column {
+                        Text("AGNOVEXA", fontWeight = FontWeight.Bold, letterSpacing = 1.2.sp)
+                        Text("FIELD OS · LOCAL CORE", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 9.sp)
+                    }
+                }
+                Spacer(Modifier.height(12.dp))
+                Text("所有功能", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
+                Text("本地优先 · 现场工程工作台", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 10.sp)
+            }
+        }
+        navigationSections.forEachIndexed { sectionIndex, section ->
+            if (sectionIndex > 0) item { HorizontalDivider(Modifier.padding(horizontal = 16.dp, vertical = 7.dp)) }
+            item {
+                Text(
+                    section.label.uppercase(),
+                    modifier = Modifier.padding(horizontal = 24.dp, vertical = 5.dp),
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    fontSize = 9.sp,
+                    letterSpacing = 1.sp,
+                    fontWeight = FontWeight.Bold,
+                )
+            }
+            items(section.items, key = NavItem::route) { item ->
+                NavigationDrawerItem(
+                    label = { Text(item.label, maxLines = 1, overflow = TextOverflow.Ellipsis) },
+                    selected = selectedRoute == item.route,
+                    onClick = { onNavigate(item.route) },
+                    icon = { Icon(item.icon, null) },
+                    modifier = Modifier.padding(horizontal = 12.dp),
+                )
+            }
+        }
+        item {
+            Text(
+                "页面数据默认保存在本机",
+                modifier = Modifier.padding(horizontal = 24.dp, vertical = 14.dp),
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                fontSize = 9.sp,
+            )
         }
     }
 }
@@ -397,10 +526,16 @@ private fun RecordScreen(kind: String, workspace: WorkspaceSnapshot, viewModel: 
 }
 
 @Composable
-private fun SearchScreen(state: FieldOsUiState, viewModel: FieldOsViewModel, onBack: () -> Unit) {
+private fun SearchScreen(state: FieldOsUiState, viewModel: FieldOsViewModel, onBack: () -> Unit, onOpenNavigation: (() -> Unit)?) {
     var query by remember { mutableStateOf("") }
     LazyColumn(contentPadding = PaddingValues(AppSpacing.md), verticalArrangement = Arrangement.spacedBy(AppSpacing.sm)) {
-        item { Row(verticalAlignment = Alignment.CenterVertically) { IconButton(onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, "返回") }; Text("统一搜索", style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Bold) } }
+        item {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                if (onOpenNavigation != null) IconButton(onOpenNavigation) { Icon(Icons.Default.Menu, "打开功能栏") }
+                else IconButton(onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, "返回") }
+                Text("统一搜索", style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Bold)
+            }
+        }
         item {
             OutlinedTextField(query, { query = it }, Modifier.fillMaxWidth(), label = { Text("搜索命令和知识") }, trailingIcon = { IconButton({ viewModel.search(query) }) { Icon(Icons.Default.Search, "搜索") } }, singleLine = true)
         }

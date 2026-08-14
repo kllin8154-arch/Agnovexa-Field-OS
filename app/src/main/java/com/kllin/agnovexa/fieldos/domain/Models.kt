@@ -158,6 +158,7 @@ data class AiProvider(
     val hasApiKey: Boolean = false,
     val createdAt: Long,
     val updatedAt: Long,
+    val thinkingEnabled: Boolean? = null,
 )
 
 data class AiChatMessage(
@@ -238,6 +239,7 @@ data class UserPreferences(
     val selectedThemeId: String? = null,
     val aiProviders: List<AiProvider> = emptyList(),
     val selectedAiProviderId: String? = null,
+    val selectedAiProjectId: String? = null,
     val selectedTechnologyIds: Set<String> = emptySet(),
     val deploymentContext: DeploymentContext = DeploymentContext(),
 )

@@ -37,6 +37,7 @@ import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Dns
 import androidx.compose.material.icons.filled.ErrorOutline
 import androidx.compose.material.icons.filled.FolderOpen
+import androidx.compose.material.icons.filled.Menu
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Search
@@ -171,6 +172,7 @@ fun ConceptHomeScreen(
     state: FieldOsUiState,
     navigate: (String) -> Unit,
     onReplayBoot: () -> Unit,
+    onOpenNavigation: (() -> Unit)?,
 ) {
     val workspace = state.workspace
     val activeTasks = workspace.tasks.filter { it.status != "DONE" && it.status != "CANCELED" }
@@ -182,7 +184,7 @@ fun ConceptHomeScreen(
             contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 15.dp, vertical = 14.dp),
             verticalArrangement = Arrangement.spacedBy(13.dp),
         ) {
-            item { ConceptBrandHeader(onReplayBoot = onReplayBoot, onProfile = { navigate("profile") }) }
+            item { ConceptBrandHeader(onReplayBoot = onReplayBoot, onProfile = { navigate("profile") }, onOpenNavigation = onOpenNavigation) }
             item {
                 val today = remember { LocalDate.now() }
                 Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
@@ -203,10 +205,11 @@ fun ConceptHomeScreen(
 }
 
 @Composable
-private fun ConceptBrandHeader(onReplayBoot: () -> Unit, onProfile: () -> Unit) {
+private fun ConceptBrandHeader(onReplayBoot: () -> Unit, onProfile: () -> Unit, onOpenNavigation: (() -> Unit)?) {
     BoxWithConstraints(Modifier.fillMaxWidth()) {
         val compact = FieldLayoutPolicy.isCompact(maxWidth.value, LocalDensity.current.fontScale)
         Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+            onOpenNavigation?.let { open -> IconButton(open) { Icon(Icons.Default.Menu, "打开功能栏", tint = MaterialTheme.colorScheme.onSurfaceVariant) } }
             Column(Modifier.weight(1f)) {
                 Text("AGNOVEXA", fontWeight = FontWeight.Bold, fontSize = 20.sp, letterSpacing = 1.7.sp, maxLines = 1)
                 Text(
@@ -477,6 +480,7 @@ private fun RecentTracesCard(state: FieldOsUiState, onOpen: () -> Unit) {
 fun ConceptOperationsScreen(
     state: FieldOsUiState,
     navigate: (String) -> Unit,
+    onOpenNavigation: (() -> Unit)?,
 ) {
     val commands = state.workspace.commands
     val preview = commands.firstOrNull { it.favorite } ?: commands.firstOrNull()
@@ -494,6 +498,7 @@ fun ConceptOperationsScreen(
                     description = "管理服务器资产、命令手册、部署文档、问题和日报。App 只复制命令，不直接执行 Shell。",
                     action = "打开命令工作台",
                     onAction = { navigate("records/commands") },
+                    onOpenNavigation = onOpenNavigation,
                 )
             }
             item {
@@ -571,7 +576,7 @@ fun ConceptOperationsScreen(
 }
 
 @Composable
-fun ConceptKnowledgeScreen(state: FieldOsUiState, navigate: (String) -> Unit) {
+fun ConceptKnowledgeScreen(state: FieldOsUiState, navigate: (String) -> Unit, onOpenNavigation: (() -> Unit)?) {
     val workspace = state.workspace
     val grouped = workspace.knowledge.groupBy { it.projectId }
     ConceptPageEnter {
@@ -587,6 +592,7 @@ fun ConceptKnowledgeScreen(state: FieldOsUiState, navigate: (String) -> Unit) {
                     description = "知识、命令、故障复盘和部署文档保存在本机，并通过 Room FTS 统一检索。",
                     action = "进入知识库",
                     onAction = { navigate("records/knowledge") },
+                    onOpenNavigation = onOpenNavigation,
                 )
             }
             item {
@@ -658,9 +664,19 @@ fun ConceptKnowledgeScreen(state: FieldOsUiState, navigate: (String) -> Unit) {
 }
 
 @Composable
-private fun ConceptSectionHeader(eyebrow: String, title: String, description: String, action: String, onAction: () -> Unit) {
+private fun ConceptSectionHeader(
+    eyebrow: String,
+    title: String,
+    description: String,
+    action: String,
+    onAction: () -> Unit,
+    onOpenNavigation: (() -> Unit)?,
+) {
     Column(verticalArrangement = Arrangement.spacedBy(13.dp)) {
-        ConceptEyebrow(eyebrow)
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            onOpenNavigation?.let { open -> IconButton(open) { Icon(Icons.Default.Menu, "打开功能栏", tint = MaterialTheme.colorScheme.onSurfaceVariant) } }
+            ConceptEyebrow(eyebrow, Modifier.weight(1f))
+        }
         Text(title, style = MaterialTheme.typography.headlineLarge)
         Text(description, color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.bodyLarge)
         Button(onClick = onAction, modifier = Modifier.height(50.dp)) { Text(action) }

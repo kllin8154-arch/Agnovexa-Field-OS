@@ -38,6 +38,7 @@ class AppPreferences @Inject constructor(
     private val selectedThemeKey = stringPreferencesKey("selected_theme_id")
     private val providersKey = stringPreferencesKey("ai_providers")
     private val selectedProviderKey = stringPreferencesKey("selected_ai_provider_id")
+    private val selectedAiProjectKey = stringPreferencesKey("selected_ai_project_id")
     private val selectedTechnologiesKey = stringSetPreferencesKey("selected_technologies")
     private val deploymentContextKey = stringPreferencesKey("deployment_context")
 
@@ -62,6 +63,7 @@ class AppPreferences @Inject constructor(
             selectedThemeId = selectedThemeId,
             aiProviders = providers,
             selectedAiProviderId = prefs[selectedProviderKey] ?: providers.firstOrNull()?.id,
+            selectedAiProjectId = prefs[selectedAiProjectKey],
             selectedTechnologyIds = prefs[selectedTechnologiesKey] ?: emptySet(),
             deploymentContext = parseDeploymentContext(prefs[deploymentContextKey]),
         )
@@ -144,6 +146,10 @@ class AppPreferences @Inject constructor(
     suspend fun selectProvider(id: String) {
         require(values.first().aiProviders.any { it.id == id }) { "AI Provider 不存在" }
         context.dataStore.edit { it[selectedProviderKey] = id }
+    }
+
+    suspend fun selectAiProject(id: String) {
+        context.dataStore.edit { it[selectedAiProjectKey] = id }
     }
 
     suspend fun deleteProvider(id: String) {
@@ -257,6 +263,7 @@ class AppPreferences @Inject constructor(
                     model = item.getString("model"), temperature = item.optDouble("temperature", 0.3),
                     timeoutSeconds = item.optInt("timeoutSeconds", 60), streamingEnabled = item.optBoolean("streamingEnabled", true),
                     createdAt = item.optLong("createdAt"), updatedAt = item.optLong("updatedAt"),
+                    thinkingEnabled = item.optBooleanOrNull("thinkingEnabled"),
                 )
             }
         }.getOrDefault(emptyList())
@@ -265,9 +272,13 @@ class AppPreferences @Inject constructor(
             items.forEach { item ->
                 put(JSONObject().put("id", item.id).put("name", item.name).put("baseUrl", item.baseUrl).put("model", item.model)
                     .put("temperature", item.temperature).put("timeoutSeconds", item.timeoutSeconds)
-                    .put("streamingEnabled", item.streamingEnabled).put("createdAt", item.createdAt).put("updatedAt", item.updatedAt))
+                    .put("streamingEnabled", item.streamingEnabled).put("createdAt", item.createdAt).put("updatedAt", item.updatedAt)
+                    .apply { item.thinkingEnabled?.let { put("thinkingEnabled", it) } })
             }
         }.toString()
+
+        private fun JSONObject.optBooleanOrNull(key: String): Boolean? =
+            if (has(key) && !isNull(key)) getBoolean(key) else null
 
         private fun parseDeploymentContext(json: String?): DeploymentContext = runCatching {
             val item = JSONObject(json ?: "{}")

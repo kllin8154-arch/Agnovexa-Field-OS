@@ -19,6 +19,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Architecture
 import androidx.compose.material.icons.filled.Description
+import androidx.compose.material.icons.filled.Menu
 import androidx.compose.material.icons.filled.Terminal
 import androidx.compose.material.icons.filled.UploadFile
 import androidx.compose.material.icons.filled.WarningAmber
@@ -55,7 +56,7 @@ import com.kllin.agnovexa.fieldos.domain.DeploymentContext
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun DeploymentImportScreen(state: FieldOsUiState, viewModel: FieldOsViewModel, onBack: () -> Unit) {
+fun DeploymentImportScreen(state: FieldOsUiState, viewModel: FieldOsViewModel, onBack: () -> Unit, onOpenNavigation: (() -> Unit)? = null) {
     val draft = state.deploymentImportDraft
     var projectMenu by remember { mutableStateOf(false) }
     var projectId by remember(draft) { mutableStateOf<String?>(null) }
@@ -70,7 +71,10 @@ fun DeploymentImportScreen(state: FieldOsUiState, viewModel: FieldOsViewModel, o
         topBar = {
             TopAppBar(
                 title = { Text("导入部署文档", fontWeight = FontWeight.Bold) },
-                navigationIcon = { IconButton(onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, "返回") } },
+                navigationIcon = {
+                    if (onOpenNavigation != null) IconButton(onOpenNavigation) { Icon(Icons.Default.Menu, "打开功能栏") }
+                    else IconButton(onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, "返回") }
+                },
                 colors = TopAppBarDefaults.topAppBarColors(containerColor = MaterialTheme.colorScheme.background),
             )
         },

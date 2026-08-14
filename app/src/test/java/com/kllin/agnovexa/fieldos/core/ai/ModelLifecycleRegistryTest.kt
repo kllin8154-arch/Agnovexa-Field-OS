@@ -1,6 +1,7 @@
 package com.kllin.agnovexa.fieldos.core.ai
 
 import com.kllin.agnovexa.fieldos.domain.AiProvider
+import java.time.LocalDate
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
@@ -49,6 +50,54 @@ class ModelLifecycleRegistryTest {
         assertEquals(CapabilitySupport.SUPPORTED, result?.chatCompletions)
         assertEquals(CapabilitySupport.SUPPORTED, result?.responses)
         assertEquals(StreamTermination.DATA_DONE, result?.streamTermination)
+    }
+
+    @Test
+    fun `DeepSeek V4 Pro 只记录官方已证实能力`() {
+        val result = ModelLifecycleRegistry.inspect(provider("https://api.deepseek.com/v1", "deepseek-v4-pro"))
+
+        assertEquals("DeepSeek-V4-Pro", result?.observedSnapshot)
+        assertEquals("deepseek-docs-2026-08-14", result?.capabilityVersion)
+        assertEquals(CapabilitySupport.UNKNOWN, result?.responses)
+        assertEquals(CapabilitySupport.SUPPORTED, result?.jsonOutput)
+        assertEquals(CapabilitySupport.SUPPORTED, result?.anthropicMessages)
+        assertEquals(CapabilitySupport.SUPPORTED, result?.thinking)
+        assertTrue(result?.thinkingDefaultEnabled == true)
+        assertEquals(CapabilitySupport.UNSUPPORTED, result?.temperatureWhenThinking)
+        assertEquals(CapabilitySupport.SUPPORTED, result?.reasoningContent)
+        assertEquals(StreamTermination.DATA_DONE, result?.streamTermination)
+        assertEquals(StreamTermination.UNKNOWN, result?.responsesStreamTermination)
+        assertTrue(result?.requiresReasoningContentForToolCalls == true)
+        assertTrue(result?.unsupportedParameters?.isEmpty() == true)
+        assertEquals("2026-08-14", result?.lastVerifiedAt)
+    }
+
+    @Test
+    fun `DeepSeek Flash 与 Pro 记录官方模型版本`() {
+        val flash = ModelLifecycleRegistry.inspect(provider("https://api.deepseek.com", "deepseek-v4-flash"))
+        val pro = ModelLifecycleRegistry.inspect(provider("https://api.deepseek.com", "deepseek-v4-pro"))
+
+        assertEquals("DeepSeek-V4-Flash", flash?.observedSnapshot)
+        assertEquals("DeepSeek-V4-Pro", pro?.observedSnapshot)
+    }
+
+    @Test
+    fun `百炼 qwen turbo 显示计划停用并保留迁移窗口`() {
+        val result = ModelLifecycleRegistry.inspect(provider("https://dashscope.aliyuncs.com/compatible-mode/v1", "qwen-turbo"))
+
+        assertEquals(ModelLifecycleState.SCHEDULED_RETIREMENT, result?.lifecycleState)
+        assertEquals("2026-10-10", result?.shutdownDate)
+        assertEquals("qwen3.7-plus", result?.replacement)
+        assertFalse(result?.isBlockedAt(LocalDate.of(2026, 8, 14)) ?: true)
+        assertTrue(result?.isBlockedAt(LocalDate.of(2026, 10, 10)) == true)
+    }
+
+    @Test
+    fun `百炼推荐模型保持可用`() {
+        val result = ModelLifecycleRegistry.inspect(provider("https://dashscope.aliyuncs.com/compatible-mode/v1", "qwen3.7-plus"))
+
+        assertEquals(ModelLifecycleState.ACTIVE, result?.lifecycleState)
+        assertFalse(result?.isBlocked ?: true)
     }
 
     private fun provider(baseUrl: String, model: String) = AiProvider(

@@ -6,7 +6,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.kllin.agnovexa.fieldos.core.backup.BackupManager
 import com.kllin.agnovexa.fieldos.core.ai.OpenAiCompatibleClient
-import com.kllin.agnovexa.fieldos.core.ai.DeploymentPromptBuilder
+import com.kllin.agnovexa.fieldos.core.ai.ProjectPromptBuilder
 import com.kllin.agnovexa.fieldos.core.datastore.AppPreferences
 import com.kllin.agnovexa.fieldos.core.importer.DeploymentDocumentReader
 import com.kllin.agnovexa.fieldos.domain.AiChatMessage
@@ -48,6 +48,8 @@ data class FieldOsUiState(
     val searchResults: List<SearchResult> = emptyList(),
     val aiMessages: List<AiChatMessage> = emptyList(),
     val aiStreamingText: String = "",
+    val aiBusy: Boolean = false,
+    val aiConversationProjectId: String? = null,
     val deploymentImportDraft: DeploymentImportDraft? = null,
 )
 
@@ -166,6 +168,38 @@ class FieldOsViewModel @Inject constructor(
 
     fun selectAiProvider(id: String) = execute("默认 AI Provider 已切换") { preferences.selectProvider(id) }
 
+    fun selectAiProject(id: String) {
+        if (state.value.workspace.projects.none { it.id == id }) {
+            transient.update { it.copy(message = "所选项目不存在，请重新选择") }
+            return
+        }
+        if (transient.value.busy) return
+        viewModelScope.launch {
+            runCatching { preferences.selectAiProject(id) }
+                .onSuccess {
+                    transient.update {
+                        it.copy(
+                            message = "已切换项目，AI 将读取该项目的最新资料",
+                            aiMessages = emptyList(),
+                            aiStreamingText = "",
+                            aiConversationProjectId = id,
+                        )
+                    }
+                }
+                .onFailure { error -> transient.update { it.copy(message = error.message ?: "项目切换失败") } }
+        }
+    }
+
+    fun ensureAiProjectSelected(id: String) {
+        if (state.value.preferences.selectedAiProjectId == null && state.value.workspace.projects.any { it.id == id }) {
+            viewModelScope.launch { runCatching { preferences.selectAiProject(id) } }
+        }
+    }
+
+    fun clearAiConversation() = transient.update {
+        it.copy(message = "已开始新对话", aiMessages = emptyList(), aiStreamingText = "")
+    }
+
     fun deleteAiProvider(id: String) = execute("AI Provider 已删除") { preferences.deleteProvider(id) }
 
     fun setTechnologyEnabled(id: String, enabled: Boolean) = execute(null) { preferences.setTechnologyEnabled(id, enabled) }
@@ -194,6 +228,10 @@ class FieldOsViewModel @Inject constructor(
             transient.update { it.copy(deploymentImportDraft = null) }
         }
 
+    fun installDeploymentExample() = execute("脱敏部署示例已载入，可在项目和运维模块查看") {
+        useCases.installDeploymentExample()
+    }
+
     fun testAiProvider(provider: AiProvider) = execute("连接测试成功") {
         aiClient.chat(provider, listOf(AiChatMessage("user", "这是连接测试，请只回复 OK。")))
     }
@@ -203,23 +241,44 @@ class FieldOsViewModel @Inject constructor(
         val prefs = state.value.preferences
         val provider = prefs.aiProviders.firstOrNull { it.id == prefs.selectedAiProviderId }
         if (provider == null) {
-            transient.update { it.copy(message = "请先在 AI 页面配置并选择 Provider") }
+            transient.update { it.copy(message = "请先在侧边栏“AI 接口”中配置并选择 Provider") }
+            return
+        }
+        val workspace = state.value.workspace
+        val selectedProjectId = prefs.selectedAiProjectId
+            ?.takeIf { id -> workspace.projects.any { it.id == id } }
+            ?: workspace.projects.firstOrNull()?.id
+        if (selectedProjectId == null) {
+            transient.update { it.copy(message = "请先创建并选择一个项目，AI 才能读取项目上下文") }
             return
         }
         val userMessage = AiChatMessage("user", prompt.trim())
-        val history = (transient.value.aiMessages + userMessage).takeLast(12)
+        val previousMessages = transient.value.aiMessages.takeIf {
+            transient.value.aiConversationProjectId == null || transient.value.aiConversationProjectId == selectedProjectId
+        }.orEmpty()
+        val history = (previousMessages + userMessage).takeLast(12)
+        val projectPrompt = ProjectPromptBuilder.systemPrompt(selectedProjectId, workspace)
         viewModelScope.launch {
-            transient.update { it.copy(busy = true, message = null, aiMessages = history, aiStreamingText = "") }
+            transient.update {
+                it.copy(
+                    busy = true,
+                    aiBusy = true,
+                    message = null,
+                    aiMessages = history,
+                    aiStreamingText = "",
+                    aiConversationProjectId = selectedProjectId,
+                )
+            }
             runCatching {
                 aiClient.chat(
                     provider = provider,
-                    messages = listOf(AiChatMessage("system", DeploymentPromptBuilder.systemPrompt(prefs.deploymentContext))) + history,
+                    messages = listOf(AiChatMessage("system", projectPrompt)) + history,
                     onDelta = { delta -> transient.update { current -> current.copy(aiStreamingText = current.aiStreamingText + delta) } },
                 )
             }.onSuccess { answer ->
-                transient.update { it.copy(busy = false, aiMessages = history + AiChatMessage("assistant", answer), aiStreamingText = "") }
+                transient.update { it.copy(busy = false, aiBusy = false, aiMessages = history + AiChatMessage("assistant", answer), aiStreamingText = "") }
             }.onFailure { error ->
-                transient.update { it.copy(busy = false, message = error.message ?: "AI 调用失败", aiStreamingText = "") }
+                transient.update { it.copy(busy = false, aiBusy = false, message = error.message ?: "AI 调用失败", aiStreamingText = "") }
             }
         }
     }
@@ -247,7 +306,12 @@ class FieldOsViewModel @Inject constructor(
 
     fun askAiForDailyReport() {
         val today = LocalDate.now().toString()
-        val activities = state.value.workspace.activities.take(20).joinToString("\n") { "- ${it.title}：${it.description}" }
+        val snapshot = state.value
+        val projectId = snapshot.preferences.selectedAiProjectId
+            ?.takeIf { id -> snapshot.workspace.projects.any { it.id == id } }
+            ?: snapshot.workspace.projects.firstOrNull()?.id
+        val activities = snapshot.workspace.activities.filter { it.projectId == projectId }.take(20)
+            .joinToString("\n") { "- ${it.title}：${it.description}" }
             .ifBlank { "- 暂无自动活动，请生成可填写的日报结构" }
         sendAiMessage(
             "请根据以下本地活动生成 $today 的中文工作日报草稿。必须保留事实，不得虚构完成状态；按今日工作、问题处理、风险、下一步计划分节。\n$activities",

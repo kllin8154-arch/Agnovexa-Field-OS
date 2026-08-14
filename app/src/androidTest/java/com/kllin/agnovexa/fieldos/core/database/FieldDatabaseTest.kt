@@ -3,6 +3,8 @@ package com.kllin.agnovexa.fieldos.core.database
 import androidx.room.Room
 import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
+import com.kllin.agnovexa.fieldos.data.FieldRepositoryImpl
+import com.kllin.agnovexa.fieldos.domain.DeploymentExampleCatalog
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.runTest
 import org.junit.After
@@ -54,5 +56,16 @@ class FieldDatabaseTest {
         val selections = dao.observeProjectTechnologies().first().groupBy { it.projectId }
         assertEquals(setOf("docker", "nginx"), selections.getValue("p1").map { it.technologyId }.toSet())
         assertEquals(setOf("python"), selections.getValue("p2").map { it.technologyId }.toSet())
+    }
+
+    @Test fun deploymentExampleInstallsAsLinkedWorkspaceData() = runTest {
+        FieldRepositoryImpl(database, dao).installDeploymentExample()
+
+        assertEquals(DeploymentExampleCatalog.PROJECT_ID, dao.allProjects().single().id)
+        assertEquals(7, dao.allTasks().size)
+        assertTrue(dao.allServers().all { it.projectId == DeploymentExampleCatalog.PROJECT_ID })
+        assertTrue(dao.allIssues().all { issue -> dao.allServers().any { it.id == issue.serverId } })
+        assertTrue(dao.search("部署示例*", 20).isNotEmpty())
+        assertEquals(1, dao.allReports().size)
     }
 }

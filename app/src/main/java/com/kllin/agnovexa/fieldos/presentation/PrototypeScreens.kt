@@ -26,6 +26,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -46,13 +47,16 @@ import androidx.compose.material.icons.filled.Engineering
 import androidx.compose.material.icons.filled.Folder
 import androidx.compose.material.icons.filled.FolderOpen
 import androidx.compose.material.icons.filled.Hub
+import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.LightMode
 import androidx.compose.material.icons.filled.LocationOn
 import androidx.compose.material.icons.filled.Memory
+import androidx.compose.material.icons.filled.Menu
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.NotificationsNone
 import androidx.compose.material.icons.filled.Palette
 import androidx.compose.material.icons.filled.Restore
+import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.RocketLaunch
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Security
@@ -66,6 +70,7 @@ import androidx.compose.material3.AssistChip
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
@@ -79,6 +84,7 @@ import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -107,6 +113,7 @@ import com.kllin.agnovexa.fieldos.R
 import com.kllin.agnovexa.fieldos.core.ai.AiProviderPresets
 import com.kllin.agnovexa.fieldos.core.ai.ModelLifecycleRegistry
 import com.kllin.agnovexa.fieldos.core.ai.ModelLifecycleState
+import com.kllin.agnovexa.fieldos.core.ai.ProjectPromptBuilder
 import com.kllin.agnovexa.fieldos.domain.AiProvider
 import com.kllin.agnovexa.fieldos.domain.Project
 import com.kllin.agnovexa.fieldos.domain.TechnologyCatalog
@@ -432,15 +439,34 @@ private fun QuickAction(title: String, subtitle: String, icon: ImageVector, acce
 }
 
 @Composable
-fun ConnectedAiScreen(state: FieldOsUiState, viewModel: FieldOsViewModel, openSearch: () -> Unit) {
+fun ConnectedAiScreen(
+    state: FieldOsUiState,
+    viewModel: FieldOsViewModel,
+    openApiSettings: () -> Unit,
+    openProjects: () -> Unit,
+    onOpenNavigation: (() -> Unit)?,
+) {
     var prompt by remember { mutableStateOf("") }
-    var editingProvider by remember { mutableStateOf<AiProvider?>(null) }
-    var showProviderDialog by remember { mutableStateOf(false) }
-    var showDeploymentContext by remember { mutableStateOf(false) }
+    val listState = rememberLazyListState()
     val selected = state.preferences.aiProviders.firstOrNull { it.id == state.preferences.selectedAiProviderId }
     val selectedBlocked = selected?.let(ModelLifecycleRegistry::inspect)?.isBlocked == true
+    val projects = state.workspace.projects
+    val selectedProject = projects.firstOrNull { it.id == state.preferences.selectedAiProjectId } ?: projects.firstOrNull()
+    LaunchedEffect(selectedProject?.id, state.preferences.selectedAiProjectId) {
+        selectedProject?.let { viewModel.ensureAiProjectSelected(it.id) }
+    }
+    val projectReady = selectedProject != null
+    val canChat = selected != null && !selectedBlocked && projectReady
+    val chatItemCount = state.aiMessages.size + when {
+        state.aiStreamingText.isNotBlank() || state.aiBusy -> 1
+        else -> 0
+    } + if (state.aiMessages.isEmpty()) 1 else 0
+    LaunchedEffect(state.aiMessages.size, state.aiStreamingText.length / 160, state.aiBusy) {
+        if (chatItemCount > 0) listState.scrollToItem(chatItemCount - 1)
+    }
     Column(Modifier.fillMaxSize().padding(horizontal = 16.dp, vertical = 10.dp)) {
         Row(verticalAlignment = Alignment.CenterVertically) {
+            onOpenNavigation?.let { open -> IconButton(open) { Icon(Icons.Default.Menu, "打开功能栏") } }
             Column(Modifier.weight(1f)) {
                 Text(
                     "AGNOVEXA INTELLIGENCE",
@@ -451,7 +477,7 @@ fun ConnectedAiScreen(state: FieldOsUiState, viewModel: FieldOsViewModel, openSe
                     letterSpacing = 1.8.sp,
                 )
                 Spacer(Modifier.height(4.dp))
-                Text("AI Agent，不只回答问题。", style = MaterialTheme.typography.headlineMedium)
+                Text("AI 项目助手", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
                 Text(
                     selected?.let { provider ->
                         if (selectedBlocked) "${provider.name} · ${provider.model} 已停用" else "${provider.name} · ${provider.model}"
@@ -462,18 +488,31 @@ fun ConnectedAiScreen(state: FieldOsUiState, viewModel: FieldOsViewModel, openSe
                     overflow = TextOverflow.Ellipsis,
                 )
             }
-            IconButton({ editingProvider = null; showProviderDialog = true }) { Icon(Icons.Default.Add, "添加 Provider") }
-            IconButton(openSearch) { Icon(Icons.Default.Search, "本地搜索") }
+            IconButton(viewModel::clearAiConversation, enabled = state.aiMessages.isNotEmpty() && !state.busy) {
+                Icon(Icons.Default.Refresh, "开始新对话")
+            }
+            IconButton(openApiSettings) { Icon(Icons.Default.Hub, "打开 AI 接口设置") }
         }
         Spacer(Modifier.height(10.dp))
-        ProviderStrip(state, viewModel, onEdit = { editingProvider = it; showProviderDialog = true })
+        AiProjectSelector(
+            projects = projects,
+            selectedProject = selectedProject,
+            state = state,
+            enabled = !state.busy,
+            onSelect = viewModel::selectAiProject,
+            onOpenProjects = openProjects,
+        )
         Spacer(Modifier.height(10.dp))
-        DeploymentContextCard(state.preferences.deploymentContext) { showDeploymentContext = true }
-        Spacer(Modifier.height(10.dp))
-        LazyColumn(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        LazyColumn(Modifier.weight(1f), state = listState, verticalArrangement = Arrangement.spacedBy(8.dp)) {
             if (state.aiMessages.isEmpty()) {
                 item {
-                    AiWelcomeCard(selected != null && !selectedBlocked, if (selected != null && !selectedBlocked) viewModel::askAiForDailyReport else null)
+                    AiWelcomeCard(
+                        online = canChat,
+                        projectName = selectedProject?.name,
+                        contextSummary = selectedProject?.let { ProjectPromptBuilder.summary(it.id, state.workspace) },
+                        onDailyReport = if (canChat) viewModel::askAiForDailyReport else null,
+                        onConfigure = if (selected == null || selectedBlocked) openApiSettings else null,
+                    )
                 }
             }
             items(state.aiMessages) { message ->
@@ -485,61 +524,210 @@ fun ConnectedAiScreen(state: FieldOsUiState, viewModel: FieldOsViewModel, openSe
                     onSaveKnowledge = if (message.role == "assistant") ({ viewModel.saveAiAsKnowledge(message.content) }) else null,
                 )
             }
-            if (state.aiStreamingText.isNotBlank()) item { ChatBubble("assistant", state.aiStreamingText) }
+            if (state.aiStreamingText.isNotBlank()) {
+                item { ChatBubble("assistant", state.aiStreamingText, streaming = true) }
+            } else if (state.aiBusy) {
+                item { AiThinkingBubble() }
+            }
         }
         Row(verticalAlignment = Alignment.Bottom) {
             OutlinedTextField(
                 value = prompt, onValueChange = { prompt = it }, modifier = Modifier.weight(1f),
-                label = { Text(if (selected == null) "请先添加 Provider" else if (selectedBlocked) "当前模型已停用，请先修改" else "输入现场问题") },
-                enabled = selected != null && !selectedBlocked && !state.busy, maxLines = 4,
+                label = {
+                    Text(
+                        when {
+                            !projectReady -> "请先创建项目"
+                            selected == null -> "请先添加 Provider"
+                            selectedBlocked -> "当前模型已停用，请先修改"
+                            else -> "询问当前项目"
+                        },
+                    )
+                },
+                supportingText = selectedProject?.let { { Text("上下文：${it.name}", maxLines = 1, overflow = TextOverflow.Ellipsis) } },
+                enabled = canChat && !state.busy,
+                maxLines = 4,
             )
             Spacer(Modifier.width(8.dp))
             Button(
                 onClick = { viewModel.sendAiMessage(prompt); prompt = "" },
-                enabled = selected != null && !selectedBlocked && prompt.isNotBlank() && !state.busy,
+                enabled = canChat && prompt.isNotBlank() && !state.busy,
                 contentPadding = PaddingValues(12.dp),
             ) { Icon(Icons.AutoMirrored.Filled.Send, "发送") }
         }
         Text("AI 不会直接执行命令；模型建议需结合现场环境验证。", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 9.sp, modifier = Modifier.padding(top = 5.dp))
     }
-    if (showProviderDialog) {
-        ProviderEditorDialog(editingProvider, onDismiss = { showProviderDialog = false }) { provider, key ->
-            viewModel.saveAiProvider(provider, key); showProviderDialog = false
+}
+
+@Composable
+private fun AiProjectSelector(
+    projects: List<Project>,
+    selectedProject: Project?,
+    state: FieldOsUiState,
+    enabled: Boolean,
+    onSelect: (String) -> Unit,
+    onOpenProjects: () -> Unit,
+) {
+    var expanded by remember { mutableStateOf(false) }
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+        shape = RoundedCornerShape(14.dp),
+    ) {
+        if (selectedProject == null) {
+            Row(Modifier.fillMaxWidth().padding(14.dp), verticalAlignment = Alignment.CenterVertically) {
+                Icon(Icons.Default.FolderOpen, null, tint = MaterialTheme.colorScheme.primary)
+                Spacer(Modifier.width(10.dp))
+                Column(Modifier.weight(1f)) {
+                    Text("还没有可用项目", fontWeight = FontWeight.SemiBold)
+                    Text("创建项目并维护技术栈、服务器和问题后，AI 会自动读取。", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 11.sp)
+                }
+                OutlinedButton(onClick = onOpenProjects) { Text("创建") }
+            }
+        } else {
+            Box {
+                Row(
+                    Modifier.fillMaxWidth().clickable(enabled = enabled) { expanded = true }.padding(14.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Box(
+                        Modifier.size(42.dp).clip(RoundedCornerShape(12.dp)).background(MaterialTheme.colorScheme.primary.copy(alpha = .12f)),
+                        contentAlignment = Alignment.Center,
+                    ) { Icon(Icons.Default.FolderOpen, null, tint = MaterialTheme.colorScheme.primary) }
+                    Spacer(Modifier.width(10.dp))
+                    Column(Modifier.weight(1f)) {
+                        Text("当前项目", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 10.sp)
+                        Text(selectedProject.name, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                        Text(
+                            ProjectPromptBuilder.summary(selectedProject.id, state.workspace),
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            fontSize = 10.sp,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                        )
+                    }
+                    Icon(Icons.Default.KeyboardArrowDown, "切换项目", tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
+                DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
+                    projects.forEach { project ->
+                        DropdownMenuItem(
+                            text = {
+                                Column {
+                                    Text(project.name, fontWeight = if (project.id == selectedProject.id) FontWeight.Bold else FontWeight.Normal)
+                                    Text(project.code.ifBlank { project.status }, color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 10.sp)
+                                }
+                            },
+                            onClick = { expanded = false; onSelect(project.id) },
+                            leadingIcon = { Icon(Icons.Default.FolderOpen, null) },
+                        )
+                    }
+                }
+            }
         }
     }
-    if (showDeploymentContext) {
-        DeploymentContextDialog(
-            existing = state.preferences.deploymentContext,
-            onDismiss = { showDeploymentContext = false },
-            onClear = { viewModel.clearDeploymentContext(); showDeploymentContext = false },
-            onSave = { value -> viewModel.saveDeploymentContext(value); showDeploymentContext = false },
+}
+
+@Composable
+fun AiProviderSettingsScreen(state: FieldOsUiState, viewModel: FieldOsViewModel, onOpenNavigation: (() -> Unit)?) {
+    var editingProvider by remember { mutableStateOf<AiProvider?>(null) }
+    var showProviderDialog by remember { mutableStateOf(false) }
+    var deletingProvider by remember { mutableStateOf<AiProvider?>(null) }
+    val providers = state.preferences.aiProviders
+    LazyColumn(
+        modifier = Modifier.fillMaxSize(),
+        contentPadding = PaddingValues(horizontal = 14.dp, vertical = 12.dp),
+        verticalArrangement = Arrangement.spacedBy(10.dp),
+    ) {
+        item {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                onOpenNavigation?.let { open -> IconButton(open) { Icon(Icons.Default.Menu, "打开功能栏") } }
+                Column(Modifier.weight(1f)) {
+                    Text("AI 接口", style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Bold)
+                    Text("Provider、模型与本机密钥", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 11.sp)
+                }
+                Button(onClick = { editingProvider = null; showProviderDialog = true }, enabled = !state.busy) {
+                    Icon(Icons.Default.Add, null, Modifier.size(18.dp))
+                    Spacer(Modifier.width(5.dp))
+                    Text("添加")
+                }
+            }
+        }
+        item {
+            Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primary.copy(alpha = .09f)), shape = DashboardShape) {
+                Row(Modifier.fillMaxWidth().padding(13.dp), verticalAlignment = Alignment.Top) {
+                    Icon(Icons.Default.Security, null, tint = MaterialTheme.colorScheme.primary)
+                    Spacer(Modifier.width(9.dp))
+                    Column {
+                        Text("密钥只保存在本机", fontWeight = FontWeight.SemiBold)
+                        Text("API Key 使用 Android Keystore 加密，不进入日志、备份、部署示例或 AI 对话上下文。", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 10.sp)
+                    }
+                }
+            }
+        }
+        if (providers.isEmpty()) {
+            item {
+                Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface), shape = DashboardShape) {
+                    Column(Modifier.fillMaxWidth().padding(18.dp), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Icon(Icons.Default.Hub, null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(34.dp))
+                        Text("还没有 AI Provider", fontWeight = FontWeight.Bold)
+                        Text("添加 OpenAI-compatible 服务后，AI 助手才能联网对话。", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 11.sp)
+                        OutlinedButton(onClick = { editingProvider = null; showProviderDialog = true }) { Text("添加第一个 Provider") }
+                    }
+                }
+            }
+        } else {
+            items(providers, key = AiProvider::id) { provider ->
+                ProviderSettingsCard(
+                    provider = provider,
+                    selected = provider.id == state.preferences.selectedAiProviderId,
+                    busy = state.busy,
+                    onSelect = { viewModel.selectAiProvider(provider.id) },
+                    onTest = { viewModel.testAiProvider(provider) },
+                    onEdit = { editingProvider = provider; showProviderDialog = true },
+                    onDelete = { deletingProvider = provider },
+                )
+            }
+        }
+        item {
+            Text("Base URL、模型名、超时和流式响应均按 Provider 独立保存。AI 助手只读取当前默认 Provider。", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 10.sp)
+        }
+    }
+    if (showProviderDialog) {
+        ProviderEditorDialog(editingProvider, onDismiss = { showProviderDialog = false }) { provider, key ->
+            viewModel.saveAiProvider(provider, key)
+            showProviderDialog = false
+        }
+    }
+    deletingProvider?.let { provider ->
+        AlertDialog(
+            onDismissRequest = { deletingProvider = null },
+            title = { Text("删除 ${provider.name}？") },
+            text = { Text("该操作会同时移除本机加密保存的 API Key，且无法撤销。") },
+            confirmButton = {
+                Button(onClick = { viewModel.deleteAiProvider(provider.id); deletingProvider = null }) { Text("确认删除") }
+            },
+            dismissButton = { TextButton(onClick = { deletingProvider = null }) { Text("取消") } },
         )
     }
 }
 
 @Composable
-private fun ProviderStrip(state: FieldOsUiState, viewModel: FieldOsViewModel, onEdit: (AiProvider) -> Unit) {
-    val providers = state.preferences.aiProviders
-    if (providers.isEmpty()) {
-        Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface), shape = DashboardShape) {
-            Row(Modifier.fillMaxWidth().padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
-                Icon(Icons.Default.Security, null, tint = MaterialTheme.colorScheme.primary)
-                Spacer(Modifier.width(9.dp))
-                Text("API Key 仅以 Keystore 加密密文保存在本机", fontSize = 11.sp, modifier = Modifier.weight(1f))
-            }
-        }
-        return
-    }
-    var providerMenu by remember(providers) { mutableStateOf(false) }
-    val provider = providers.firstOrNull { it.id == state.preferences.selectedAiProviderId } ?: providers.first()
+private fun ProviderSettingsCard(
+    provider: AiProvider,
+    selected: Boolean,
+    busy: Boolean,
+    onSelect: () -> Unit,
+    onTest: () -> Unit,
+    onEdit: () -> Unit,
+    onDelete: () -> Unit,
+) {
     val lifecycle = ModelLifecycleRegistry.inspect(provider)
     val blocked = lifecycle?.isBlocked == true
     Card(
         modifier = Modifier.fillMaxWidth(),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primary.copy(alpha = .09f)),
+        colors = CardDefaults.cardColors(containerColor = if (selected) MaterialTheme.colorScheme.primary.copy(alpha = .09f) else MaterialTheme.colorScheme.surface),
         shape = RoundedCornerShape(11.dp),
     ) {
-        Column(Modifier.padding(10.dp), verticalArrangement = Arrangement.spacedBy(7.dp)) {
+        Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Icon(
                     if (provider.hasApiKey && !blocked) Icons.Default.CheckCircle else Icons.Default.WarningAmber,
@@ -549,8 +737,9 @@ private fun ProviderStrip(state: FieldOsUiState, viewModel: FieldOsViewModel, on
                 )
                 Spacer(Modifier.width(8.dp))
                 Column(Modifier.weight(1f)) {
-                    Text(provider.name, fontWeight = FontWeight.Medium, fontSize = 12.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                    Text(provider.model, color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 9.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    Text(provider.name, fontWeight = FontWeight.SemiBold, fontSize = 14.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    Text(provider.model, color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 10.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    Text(provider.baseUrl, color = MaterialTheme.colorScheme.onSurfaceVariant, fontFamily = FontFamily.Monospace, fontSize = 9.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
                     lifecycle?.let {
                         Text(
                             it.userMessage,
@@ -559,70 +748,68 @@ private fun ProviderStrip(state: FieldOsUiState, viewModel: FieldOsViewModel, on
                             maxLines = 2,
                             overflow = TextOverflow.Ellipsis,
                         )
-                    }
-                }
-            }
-            if (providers.size > 1) {
-                Box {
-                    OutlinedButton({ providerMenu = true }, Modifier.fillMaxWidth()) {
-                        Text("切换 Provider", Modifier.weight(1f), maxLines = 1)
-                        Text("${providers.size} 个 ▾")
-                    }
-                    DropdownMenu(providerMenu, { providerMenu = false }) {
-                        providers.forEach { item ->
-                            DropdownMenuItem(
-                                text = {
-                                    Column {
-                                        Text(item.name, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                                        Text(item.model, color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 9.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                                    }
-                                },
-                                onClick = { viewModel.selectAiProvider(item.id); providerMenu = false },
+                        if (it.providerFamily == "DeepSeek") {
+                            Text(
+                                "官方能力：Chat / Anthropic / JSON / Tools / Thinking；Responses 尚未获官方确认。Field OS 当前仅使用 Chat + SSE。",
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                fontSize = 9.sp,
+                                maxLines = 2,
+                                overflow = TextOverflow.Ellipsis,
                             )
                         }
                     }
                 }
+                if (selected) Text("默认", color = MaterialTheme.colorScheme.primary, fontSize = 10.sp, fontWeight = FontWeight.Bold)
             }
             Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                TextButton({ viewModel.testAiProvider(provider) }, enabled = provider.hasApiKey && !blocked && !state.busy) { Text("测试连接") }
+                if (!selected) TextButton(onSelect, enabled = !busy) { Text("设为默认") }
+                TextButton(onTest, enabled = provider.hasApiKey && !blocked && !busy) { Text("测试连接") }
                 Spacer(Modifier.weight(1f))
-                IconButton({ onEdit(provider) }) { Icon(Icons.Default.Edit, "编辑 Provider") }
-                IconButton({ viewModel.deleteAiProvider(provider.id) }) { Icon(Icons.Default.Delete, "删除 Provider") }
+                IconButton(onEdit, enabled = !busy) { Icon(Icons.Default.Edit, "编辑 Provider") }
+                IconButton(onDelete, enabled = !busy) { Icon(Icons.Default.Delete, "删除 Provider", tint = MaterialTheme.colorScheme.error) }
             }
         }
     }
 }
 
 @Composable
-private fun AiWelcomeCard(online: Boolean, onDailyReport: (() -> Unit)? = null) {
-    Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface), shape = RoundedCornerShape(26.dp), modifier = Modifier.fillMaxWidth()) {
-        Box(
-            Modifier
-                .fillMaxWidth()
-                .background(
-                    Brush.linearGradient(
-                        listOf(MaterialTheme.colorScheme.primary.copy(alpha = .12f), Color.Transparent, MaterialTheme.colorScheme.secondary.copy(alpha = .06f)),
-                    ),
-                ),
-        ) {
-            Column(Modifier.padding(20.dp)) {
-                Box(
-                    Modifier.size(50.dp).clip(RoundedCornerShape(16.dp)).background(MaterialTheme.colorScheme.primary.copy(alpha = .14f)),
-                    contentAlignment = Alignment.Center,
-                ) {
-                    Icon(Icons.Default.AutoAwesome, null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(27.dp))
-                }
-                Spacer(Modifier.height(14.dp))
-                Text(if (online) "把现场上下文交给 Agent" else "连接你的模型服务", fontWeight = FontWeight.SemiBold, fontSize = 21.sp)
-                Spacer(Modifier.height(5.dp))
+private fun AiWelcomeCard(
+    online: Boolean,
+    projectName: String?,
+    contextSummary: String?,
+    onDailyReport: (() -> Unit)? = null,
+    onConfigure: (() -> Unit)? = null,
+) {
+    Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface), shape = RoundedCornerShape(18.dp), modifier = Modifier.fillMaxWidth()) {
+        Row(Modifier.fillMaxWidth().padding(16.dp), verticalAlignment = Alignment.Top) {
+            Box(
+                Modifier.size(44.dp).clip(RoundedCornerShape(13.dp)).background(MaterialTheme.colorScheme.primary.copy(alpha = .13f)),
+                contentAlignment = Alignment.Center,
+            ) { Icon(Icons.Default.AutoAwesome, null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(24.dp)) }
+            Spacer(Modifier.width(12.dp))
+            Column(Modifier.weight(1f)) {
                 Text(
-                    if (online) "分析报错、解释命令、生成日报，并把结果保存回本地工作区。" else "支持 OpenAI-compatible Base URL、模型名、API Key、超时与流式响应；密钥只以加密密文保存在本机。",
+                    when {
+                        projectName == null -> "先创建一个项目"
+                        online -> "已读取 $projectName"
+                        else -> "项目已就绪，连接模型后可提问"
+                    },
+                    fontWeight = FontWeight.SemiBold,
+                    fontSize = 17.sp,
+                )
+                Spacer(Modifier.height(4.dp))
+                Text(
+                    contextSummary ?: "AI 会使用项目技术栈、服务器、任务、问题、知识与最近活动作为上下文，不需要重复填写。",
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    fontSize = 12.sp,
+                    fontSize = 11.sp,
                 )
                 if (online && onDailyReport != null) {
                     Spacer(Modifier.height(8.dp))
-                    AssistChip(onClick = onDailyReport, label = { Text("根据本地活动生成今日日报") }, leadingIcon = { Icon(Icons.AutoMirrored.Filled.Article, null, Modifier.size(16.dp)) })
+                    AssistChip(onClick = onDailyReport, label = { Text("根据项目活动生成日报") }, leadingIcon = { Icon(Icons.AutoMirrored.Filled.Article, null, Modifier.size(16.dp)) })
+                }
+                if (!online && onConfigure != null) {
+                    Spacer(Modifier.height(8.dp))
+                    OutlinedButton(onClick = onConfigure) { Icon(Icons.Default.Hub, null); Spacer(Modifier.width(6.dp)); Text("设置 AI 接口") }
                 }
             }
         }
@@ -633,6 +820,7 @@ private fun AiWelcomeCard(online: Boolean, onDailyReport: (() -> Unit)? = null) 
 private fun ChatBubble(
     role: String,
     content: String,
+    streaming: Boolean = false,
     onSaveCommand: (() -> Unit)? = null,
     onSaveReport: (() -> Unit)? = null,
     onSaveKnowledge: (() -> Unit)? = null,
@@ -640,9 +828,21 @@ private fun ChatBubble(
     val user = role == "user"
     Row(Modifier.fillMaxWidth(), horizontalArrangement = if (user) Arrangement.End else Arrangement.Start) {
         Column(
-            Modifier.fillMaxWidth(.86f).clip(RoundedCornerShape(14.dp)).background(if (user) MaterialTheme.colorScheme.primary.copy(alpha = .18f) else MaterialTheme.colorScheme.surface).padding(12.dp),
+            Modifier
+                .fillMaxWidth(if (user) .86f else 1f)
+                .clip(RoundedCornerShape(14.dp))
+                .background(if (user) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surface)
+                .padding(12.dp),
         ) {
-            Text(content, fontSize = 13.sp)
+            if (!user) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Icon(Icons.Default.AutoAwesome, null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(15.dp))
+                    Spacer(Modifier.width(5.dp))
+                    Text(if (streaming) "正在回答" else "AI 建议", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 10.sp, fontWeight = FontWeight.SemiBold)
+                }
+                Spacer(Modifier.height(7.dp))
+            }
+            Text(content, color = if (user) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurface, fontSize = 13.sp, lineHeight = 20.sp)
             if (!user && (onSaveCommand != null || onSaveReport != null || onSaveKnowledge != null)) {
                 Spacer(Modifier.height(8.dp))
                 LazyRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
@@ -651,6 +851,20 @@ private fun ChatBubble(
                     if (onSaveKnowledge != null) item { AssistChip(onClick = onSaveKnowledge, label = { Text("存为知识", fontSize = 10.sp) }) }
                 }
             }
+        }
+    }
+}
+
+@Composable
+private fun AiThinkingBubble() {
+    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.Start) {
+        Row(
+            Modifier.clip(RoundedCornerShape(14.dp)).background(MaterialTheme.colorScheme.surface).padding(horizontal = 14.dp, vertical = 12.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            CircularProgressIndicator(Modifier.size(17.dp), strokeWidth = 2.dp)
+            Spacer(Modifier.width(9.dp))
+            Text("正在读取项目资料并生成回答…", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 11.sp)
         }
     }
 }
@@ -672,7 +886,10 @@ private fun ProviderEditorDialog(existing: AiProvider?, onDismiss: () -> Unit, o
     var temperature by remember(existing) { mutableStateOf(existing?.temperature?.toString() ?: "0.3") }
     var timeout by remember(existing) { mutableStateOf(existing?.timeoutSeconds?.toString() ?: "60") }
     var streaming by remember(existing) { mutableStateOf(existing?.streamingEnabled ?: true) }
+    var thinkingEnabled by remember(existing) { mutableStateOf(existing?.thinkingEnabled ?: (initialPreset.id == "deepseek")) }
     val lifecycle = ModelLifecycleRegistry.inspect(baseUrl, model)
+    val deepSeekThinking = lifecycle?.providerFamily == "DeepSeek"
+    val temperatureEnabled = !deepSeekThinking || !thinkingEnabled
     AlertDialog(
         onDismissRequest = onDismiss,
         title = { Text(if (existing == null) "添加 AI Provider" else "编辑 AI Provider") },
@@ -690,6 +907,7 @@ private fun ProviderEditorDialog(existing: AiProvider?, onDismiss: () -> Unit, o
                                         selectedPreset = preset; presetExpanded = false; name = preset.name
                                         if (preset.baseUrl.isNotBlank()) baseUrl = preset.baseUrl
                                         preset.models.firstOrNull()?.let { model = it }
+                                        thinkingEnabled = preset.id == "deepseek"
                                     },
                                 )
                             }
@@ -713,6 +931,7 @@ private fun ProviderEditorDialog(existing: AiProvider?, onDismiss: () -> Unit, o
                             snapshot.userMessage,
                             color = when (snapshot.lifecycleState) {
                                 ModelLifecycleState.RETIRED -> MaterialTheme.colorScheme.error
+                                ModelLifecycleState.SCHEDULED_RETIREMENT -> if (snapshot.isBlocked) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.tertiary
                                 ModelLifecycleState.DYNAMIC -> MaterialTheme.colorScheme.primary
                                 ModelLifecycleState.ACTIVE -> MaterialTheme.colorScheme.onSurfaceVariant
                             },
@@ -721,17 +940,32 @@ private fun ProviderEditorDialog(existing: AiProvider?, onDismiss: () -> Unit, o
                     }
                 }
                 item { OutlinedTextField(apiKey, { apiKey = it }, Modifier.fillMaxWidth(), label = { Text(if (existing?.hasApiKey == true) "API Key（留空则保持原值）" else "API Key") }, singleLine = true, visualTransformation = PasswordVisualTransformation()) }
+                if (deepSeekThinking) {
+                    item {
+                        Column {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Text("Thinking 模式", Modifier.weight(1f))
+                                Switch(thinkingEnabled, { thinkingEnabled = it })
+                            }
+                            Text(
+                                if (thinkingEnabled) "DeepSeek V4 默认开启；开启时官方不会采用温度参数。" else "已关闭 Thinking，温度参数会随请求发送。",
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                fontSize = 10.sp,
+                            )
+                        }
+                    }
+                }
                 item {
                     BoxWithConstraints(Modifier.fillMaxWidth()) {
                         val compact = FieldLayoutPolicy.isCompact(maxWidth.value, LocalDensity.current.fontScale)
                         if (compact) {
                             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                                OutlinedTextField(temperature, { temperature = it }, Modifier.fillMaxWidth(), label = { Text("温度") }, singleLine = true)
+                                OutlinedTextField(temperature, { temperature = it }, Modifier.fillMaxWidth(), label = { Text("温度") }, singleLine = true, enabled = temperatureEnabled)
                                 OutlinedTextField(timeout, { timeout = it }, Modifier.fillMaxWidth(), label = { Text("超时/秒") }, singleLine = true)
                             }
                         } else {
                             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                                OutlinedTextField(temperature, { temperature = it }, Modifier.weight(1f), label = { Text("温度") }, singleLine = true)
+                                OutlinedTextField(temperature, { temperature = it }, Modifier.weight(1f), label = { Text("温度") }, singleLine = true, enabled = temperatureEnabled)
                                 OutlinedTextField(timeout, { timeout = it }, Modifier.weight(1f), label = { Text("超时/秒") }, singleLine = true)
                             }
                         }
@@ -745,7 +979,19 @@ private fun ProviderEditorDialog(existing: AiProvider?, onDismiss: () -> Unit, o
             Button(
                 onClick = {
                     onSave(
-                        AiProvider(existing?.id ?: UUID.randomUUID().toString(), name, baseUrl, model, temperature.toDoubleOrNull() ?: .3, timeout.toIntOrNull() ?: 60, streaming, existing?.hasApiKey ?: false, existing?.createdAt ?: now, now),
+                        AiProvider(
+                            id = existing?.id ?: UUID.randomUUID().toString(),
+                            name = name,
+                            baseUrl = baseUrl,
+                            model = model,
+                            temperature = temperature.toDoubleOrNull() ?: .3,
+                            timeoutSeconds = timeout.toIntOrNull() ?: 60,
+                            streamingEnabled = streaming,
+                            hasApiKey = existing?.hasApiKey ?: false,
+                            createdAt = existing?.createdAt ?: now,
+                            updatedAt = now,
+                            thinkingEnabled = thinkingEnabled.takeIf { deepSeekThinking },
+                        ),
                         apiKey,
                     )
                 },
@@ -757,13 +1003,21 @@ private fun ProviderEditorDialog(existing: AiProvider?, onDismiss: () -> Unit, o
 }
 
 @Composable
-fun ProfileSettingsScreen(state: FieldOsUiState, viewModel: FieldOsViewModel) {
+fun ProfileSettingsScreen(state: FieldOsUiState, viewModel: FieldOsViewModel, onOpenNavigation: (() -> Unit)?) {
     var editingTheme by remember { mutableStateOf<ThemePreset?>(null) }
     val themeImport = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri: Uri? -> uri?.let(viewModel::importTheme) }
     val exportBackup = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("application/zip")) { uri -> uri?.let(viewModel::exportBackup) }
     val restoreBackup = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri -> uri?.let(viewModel::restoreBackup) }
     LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(14.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-        item { Text("我的", fontWeight = FontWeight.Bold, fontSize = 24.sp); Text("外观、AI 与本地数据", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 12.sp) }
+        item {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                onOpenNavigation?.let { open -> IconButton(open) { Icon(Icons.Default.Menu, "打开功能栏") } }
+                Column {
+                    Text("我的", fontWeight = FontWeight.Bold, fontSize = 24.sp)
+                    Text("外观与本地数据", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 12.sp)
+                }
+            }
+        }
         item {
             SettingsSection("外观主题", Icons.Default.Palette) {
                 Text("明暗模式", fontWeight = FontWeight.Medium)
@@ -781,12 +1035,6 @@ fun ProfileSettingsScreen(state: FieldOsUiState, viewModel: FieldOsViewModel) {
                 state.preferences.themePresets.forEach { preset ->
                     ThemePresetRow(preset, preset.id == state.preferences.selectedThemeId && state.preferences.themeMode == ThemeMode.CUSTOM, { viewModel.selectTheme(preset.id) }, { editingTheme = preset }, { viewModel.deleteTheme(preset.id) })
                 }
-            }
-        }
-        item {
-            SettingsSection("AI 接口", Icons.Default.Hub) {
-                Text("已配置 ${state.preferences.aiProviders.size} 个 Provider。请在底部“AI”页面添加、测试、编辑和切换。", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 11.sp)
-                Row(Modifier.padding(top = 8.dp), verticalAlignment = Alignment.CenterVertically) { Icon(Icons.Default.Security, null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(18.dp)); Spacer(Modifier.width(7.dp)); Text("API Key 由 Android Keystore 加密", fontSize = 11.sp) }
             }
         }
         item {

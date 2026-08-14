@@ -31,5 +31,6 @@ interface FieldRepository {
     suspend fun saveDailyReport(value: DailyReport)
     suspend fun deleteDailyReport(id: String)
     suspend fun importDeploymentDocument(draft: DeploymentImportDraft, projectId: String?, importCommands: Boolean)
+    suspend fun installDeploymentExample()
     suspend fun seedBuiltinCommands()
 }

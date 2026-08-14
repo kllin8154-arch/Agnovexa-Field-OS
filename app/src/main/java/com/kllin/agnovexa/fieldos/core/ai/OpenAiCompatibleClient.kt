@@ -10,6 +10,11 @@ import javax.inject.Inject
 import javax.inject.Singleton
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.contentOrNull
+import kotlinx.serialization.json.jsonArray
+import kotlinx.serialization.json.jsonObject
+import kotlinx.serialization.json.jsonPrimitive
 import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.OkHttpClient
 import okhttp3.Request
@@ -26,16 +31,7 @@ class OpenAiCompatibleClient @Inject constructor(private val secrets: SecretStor
     ): String = withContext(Dispatchers.IO) {
         ModelLifecycleRegistry.blockingReason(provider)?.let { throw AiApiException(it) }
         val apiKey = secrets.get(secretId(provider.id)) ?: throw AiApiException("该 Provider 尚未填写 API Key")
-        val body = JSONObject().apply {
-            put("model", provider.model)
-            put("temperature", provider.temperature)
-            put("stream", provider.streamingEnabled)
-            put("messages", JSONArray().apply {
-                messages.forEach { message ->
-                    put(JSONObject().put("role", message.role).put("content", message.content))
-                }
-            })
-        }
+        val body = buildRequestBody(provider, messages)
         val client = OkHttpClient.Builder()
             .connectTimeout(provider.timeoutSeconds.toLong(), TimeUnit.SECONDS)
             .readTimeout(provider.timeoutSeconds.toLong(), TimeUnit.SECONDS)
@@ -77,13 +73,10 @@ class OpenAiCompatibleClient @Inject constructor(private val secrets: SecretStor
         }
     }
 
-    private fun parseMessage(json: String): String = JSONObject(json)
-        .getJSONArray("choices").getJSONObject(0).getJSONObject("message").optString("content")
+    private fun parseMessage(json: String): String = extractContent(json, "message")
         .ifBlank { throw AiApiException("模型未返回文本内容") }
 
-    private fun parseDelta(json: String): String = runCatching {
-        JSONObject(json).getJSONArray("choices").getJSONObject(0).getJSONObject("delta").optString("content")
-    }.getOrDefault("")
+    private fun parseDelta(json: String): String = parseDeltaContent(json)
 
     private fun mapHttpError(code: Int, body: String): AiApiException {
         val detail = runCatching { JSONObject(body).optJSONObject("error")?.optString("message") }.getOrNull()
@@ -102,6 +95,42 @@ class OpenAiCompatibleClient @Inject constructor(private val secrets: SecretStor
     companion object {
         private val JSON_MEDIA_TYPE = "application/json; charset=utf-8".toMediaType()
         fun secretId(providerId: String) = "ai_provider_$providerId"
+        fun parseDeltaContent(json: String): String = extractContent(json, "delta")
+
+        fun buildRequestBody(provider: AiProvider, messages: List<AiChatMessage>): JSONObject {
+            val policy = requestParameterPolicy(provider)
+            return JSONObject().apply {
+                put("model", provider.model)
+                if (policy.includeTemperature) put("temperature", provider.temperature)
+                if (policy.sendThinkingToggle && policy.thinkingEnabled != null) {
+                    put("thinking", JSONObject().put("type", if (policy.thinkingEnabled) "enabled" else "disabled"))
+                }
+                put("stream", provider.streamingEnabled)
+                put("messages", JSONArray().apply {
+                    messages.forEach { message ->
+                        put(JSONObject().put("role", message.role).put("content", message.content))
+                    }
+                })
+            }
+        }
+
+        fun requestParameterPolicy(provider: AiProvider): AiRequestParameterPolicy {
+            val capability = ModelLifecycleRegistry.inspect(provider)
+            val thinkingEnabled = provider.thinkingEnabled ?: capability?.thinkingDefaultEnabled
+            val includeTemperature = capability?.temperature != CapabilitySupport.UNSUPPORTED &&
+                !(thinkingEnabled == true && capability?.temperatureWhenThinking == CapabilitySupport.UNSUPPORTED)
+            return AiRequestParameterPolicy(
+                thinkingEnabled = thinkingEnabled,
+                sendThinkingToggle = capability?.providerFamily == "DeepSeek" && thinkingEnabled != null,
+                includeTemperature = includeTemperature,
+            )
+        }
+
+        private fun extractContent(json: String, container: String): String = runCatching {
+            Json.parseToJsonElement(json).jsonObject["choices"]?.jsonArray?.firstOrNull()?.jsonObject
+                ?.get(container)?.jsonObject?.get("content")?.jsonPrimitive?.contentOrNull.orEmpty()
+        }.getOrDefault("")
+
         fun resolveEndpoint(baseUrl: String): String {
             val normalized = baseUrl.trim().trimEnd('/')
             require(normalized.startsWith("https://") || normalized.startsWith("http://")) { "Base URL 必须以 http:// 或 https:// 开头" }
@@ -113,5 +142,11 @@ class OpenAiCompatibleClient @Inject constructor(private val secrets: SecretStor
         }
     }
 }
+
+data class AiRequestParameterPolicy(
+    val thinkingEnabled: Boolean?,
+    val sendThinkingToggle: Boolean,
+    val includeTemperature: Boolean,
+)
 
 class AiApiException(message: String) : IllegalStateException(message)
