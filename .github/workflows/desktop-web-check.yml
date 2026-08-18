@@ -5,12 +5,14 @@ on:
     paths:
       - "desktop/**"
       - ".github/workflows/desktop-web-check.yml"
+      - ".github/workflows/desktop-windows-release.yml"
   push:
     branches:
       - "agent/desktop-mvp-foundation"
     paths:
       - "desktop/**"
       - ".github/workflows/desktop-web-check.yml"
+      - ".github/workflows/desktop-windows-release.yml"
 
 permissions:
   contents: read
@@ -57,14 +59,32 @@ jobs:
             librsvg2-dev \
             patchelf
 
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Install frontend dependencies
+        run: npm install
+
+      - name: Generate desktop icons
+        run: npm run prepare:icons
+
       - name: Setup Rust
         uses: dtolnay/rust-toolchain@stable
 
-      - name: Check Tauri backend
+      - name: Test and check Tauri backend
         shell: bash
         run: |
           set +e
+          cargo test --quiet --manifest-path src-tauri/Cargo.toml --lib > /tmp/opsdesk-cargo-test.log 2>&1
+          test_status=$?
+          tail -n 160 /tmp/opsdesk-cargo-test.log
+          if [ "$test_status" -ne 0 ]; then
+            exit "$test_status"
+          fi
+
           cargo check --quiet --manifest-path src-tauri/Cargo.toml > /tmp/opsdesk-cargo-check.log 2>&1
-          status=$?
+          check_status=$?
           tail -n 160 /tmp/opsdesk-cargo-check.log
-          exit "$status"
+          exit "$check_status"

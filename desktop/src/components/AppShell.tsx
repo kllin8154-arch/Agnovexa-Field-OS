@@ -10,6 +10,7 @@ const navItems = [
   { to: "/diagnostics", label: "现场诊断", mark: "诊" },
   { to: "/deployments", label: "部署中心", mark: "部" },
   { to: "/changes", label: "变更中心", mark: "变" },
+  { to: "/ai", label: "AI 助手", mark: "AI" },
   { to: "/knowledge", label: "知识库", mark: "知" },
   { to: "/settings", label: "设置", mark: "设" },
 ];
@@ -20,8 +21,9 @@ const pageTitles: Record<string, { title: string; subtitle: string }> = {
   "/diagnostics": { title: "现场诊断", subtitle: "生成只读采集包，人工执行并回传证据" },
   "/deployments": { title: "部署中心", subtitle: "离线模板、前置检查、验证与回滚" },
   "/changes": { title: "变更中心", subtitle: "审阅命令与 Diff，不连接、不代替人工执行" },
+  "/ai": { title: "多 Provider AI 助手", subtitle: "脱敏后调用，生成草案，命令与 SQL 始终由人工执行" },
   "/knowledge": { title: "双知识库", subtitle: "内部优先、外部待审、验证后再沉淀" },
-  "/settings": { title: "安全与运行策略", subtitle: "桌面能力默认最小化，生产写能力关闭" },
+  "/settings": { title: "安全与运行策略", subtitle: "禁止服务器连接和自动执行，仅允许显式 AI 接口调用" },
 };
 
 export function AppShell() {
@@ -56,7 +58,7 @@ export function AppShell() {
 
         <div className="policy-chip">
           <span className="status-dot" />
-          完全离线 · 人工执行
+          本地优先 · 人工执行
         </div>
 
         <nav className="nav-list" aria-label="主导航">
@@ -76,8 +78,9 @@ export function AppShell() {
         <div className="sidebar-footer">
           <div className="sidebar-kicker">运行边界</div>
           <strong>{policy?.executionMode === "manual-only" ? "手工执行模式" : "受限模式"}</strong>
-          <span>SSH：未启用</span>
-          <span>远程写入：未启用</span>
+          <span>SSH / Shell：未启用</span>
+          <span>SQL 自动执行：未启用</span>
+          <span>AI：仅显式 Provider 请求</span>
         </div>
       </aside>
 

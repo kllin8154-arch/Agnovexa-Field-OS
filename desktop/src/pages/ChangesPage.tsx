@@ -1,22 +1,28 @@
 import { useMemo, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { changePlan } from "../data/mock";
 import { redactSensitiveText } from "../lib/redaction";
 import { canTransition, phaseLabels } from "../lib/workflow";
 import type { WorkflowPhase } from "../types";
 import { CodeBlock, Notice, Panel, RiskBadge } from "../components/Ui";
 
+const PENDING_ERROR_KEY = "agnovexa.opsdesk.pendingErrorContext";
+
 export function ChangesPage() {
+  const navigate = useNavigate();
   const [phase, setPhase] = useState<WorkflowPhase>(changePlan.phase);
   const [reviewed, setReviewed] = useState(false);
   const [exitCode, setExitCode] = useState("");
   const [evidence, setEvidence] = useState("");
   const [humanResolution, setHumanResolution] = useState("");
+  const [failureRecorded, setFailureRecorded] = useState(false);
 
   const step = changePlan.steps[0];
   const canSubmitEvidence = useMemo(
     () => phase === "MANUAL_EXECUTE" && exitCode.trim() !== "" && evidence.trim().length >= 10,
     [phase, exitCode, evidence],
   );
+  const executionFailed = canSubmitEvidence && exitCode.trim() !== "0";
   const redactedEvidence = useMemo(
     () => redactSensitiveText(`${evidence}\n${humanResolution}`),
     [evidence, humanResolution],
@@ -26,10 +32,31 @@ export function ChangesPage() {
     if (canTransition(phase, target)) setPhase(target);
   };
 
+  const sendFailureToAi = () => {
+    window.sessionStorage.setItem(
+      PENDING_ERROR_KEY,
+      JSON.stringify({
+        task: `分析变更计划“${changePlan.title}”的人工执行失败，定位根因并给出下一轮人工排查、修复、验证和回滚。`,
+        commandOrSql: `${step.commands}\n\n人工已做操作：\n${humanResolution}`,
+        exitCode,
+        executionOutput: evidence,
+        environment: [
+          `项目：${changePlan.project}`,
+          `目标资产：${changePlan.asset}`,
+          ...changePlan.facts,
+          ...changePlan.missingFacts.map((item) => `缺失：${item}`),
+        ].join("\n"),
+        expectedResult: step.expectedResult,
+      }),
+    );
+    setFailureRecorded(true);
+    navigate("/ai");
+  };
+
   return (
     <div className="page-stack">
-      <Notice tone="danger" title="工作台不会执行下面的命令">
-        本页只负责展示事实、风险、备份、Diff、验证和回滚。命令由现场工程师复制到目标服务器手工执行，随后回传证据。
+      <Notice tone="danger" title="工作台不会执行下面的命令或 SQL">
+        本页只负责展示事实、风险、备份、Diff、验证和回滚。命令与 SQL 由现场工程师复制到目标环境手工执行，随后回传退出码和完整证据。
       </Notice>
 
       <Panel
@@ -78,7 +105,7 @@ export function ChangesPage() {
             <ul>{step.evidenceRequired.map((item) => <li key={item}>{item}</li>)}</ul>
           </div>
         </div>
-        <CodeBlock value={step.commands} label="待人工执行命令包" />
+        <CodeBlock value={step.commands} label="待人工执行命令 / SQL 包" />
         <div className="two-column-grid compact-grid">
           <CodeBlock value={step.verificationCommands} label="独立验证命令" />
           <CodeBlock value={step.rollbackCommands} label="人工确认后的回滚命令" />
@@ -95,7 +122,7 @@ export function ChangesPage() {
                 onChange={(event) => setReviewed(event.target.checked)}
               />
               <span>
-                我已核对目标主机、命令、配置 Diff、备份路径、验证方式和回滚条件。
+                我已核对目标主机、命令/SQL、配置 Diff、备份路径、验证方式和回滚条件。
               </span>
             </label>
             <button
@@ -111,7 +138,7 @@ export function ChangesPage() {
 
         {phase === "APPROVE" && (
           <div className="approval-box">
-            <Notice tone="warning" title="下一步仍不会调用服务器">
+            <Notice tone="warning" title="下一步仍不会调用服务器或数据库">
               点击后只把工单状态改为“等待人工执行”，便于粘贴现场结果。
             </Notice>
             <div className="inline-actions">
@@ -128,8 +155,11 @@ export function ChangesPage() {
               id="exit-code"
               className="text-input"
               value={exitCode}
-              onChange={(event) => setExitCode(event.target.value)}
-              placeholder="例如：0 或 1"
+              onChange={(event) => {
+                setExitCode(event.target.value);
+                setFailureRecorded(false);
+              }}
+              placeholder="例如：0、1、127"
             />
 
             <label className="field-label" htmlFor="execution-evidence">完整 stdout / stderr / 日志</label>
@@ -137,7 +167,10 @@ export function ChangesPage() {
               id="execution-evidence"
               className="evidence-input"
               value={evidence}
-              onChange={(event) => setEvidence(event.target.value)}
+              onChange={(event) => {
+                setEvidence(event.target.value);
+                setFailureRecorded(false);
+              }}
               placeholder="粘贴完整输出、实际备份路径和验证结果"
             />
 
@@ -147,25 +180,48 @@ export function ChangesPage() {
               className="evidence-input small"
               value={humanResolution}
               onChange={(event) => setHumanResolution(event.target.value)}
-              placeholder="若人工采用了其他有效方案，请填写实际命令、配置差异和结论"
+              placeholder="若人工采用了其他方案，请填写实际命令、SQL、配置差异和结论"
             />
 
             {redactedEvidence.total > 0 && (
               <Notice tone="warning" title={`检测到 ${redactedEvidence.total} 处敏感信息`}>
-                提交时将保存脱敏副本；生产 IP、口令、Token、连接凭据和私钥不会进入证据库。
+                保存或发送给 AI 时使用脱敏副本；生产 IP、口令、Token、连接凭据和私钥不会进入外部请求。
+              </Notice>
+            )}
+
+            {executionFailed && (
+              <Notice tone="danger" title="人工执行未成功，不能进入验收">
+                当前退出码不是 0。请保留在“人工执行”阶段，可将脱敏后的报错上下文交给已配置的任一 AI Provider 分析；AI 只给出下一轮人工排查方案。
+              </Notice>
+            )}
+
+            {failureRecorded && (
+              <Notice tone="info" title="失败证据已转入排错流程">
+                变更计划仍停留在人工执行阶段，不会被误标记为已验证。
               </Notice>
             )}
 
             <div className="inline-actions end">
               <button className="secondary-button" type="button" onClick={() => transition("APPROVE")}>返回审阅</button>
-              <button
-                className="primary-button"
-                type="button"
-                disabled={!canSubmitEvidence}
-                onClick={() => transition("VERIFY")}
-              >
-                提交证据并进入验证
-              </button>
+              {executionFailed ? (
+                <button
+                  className="primary-button"
+                  type="button"
+                  disabled={!canSubmitEvidence}
+                  onClick={sendFailureToAi}
+                >
+                  将报错交给 AI 继续排查
+                </button>
+              ) : (
+                <button
+                  className="primary-button"
+                  type="button"
+                  disabled={!canSubmitEvidence}
+                  onClick={() => transition("VERIFY")}
+                >
+                  提交成功证据并进入验证
+                </button>
+              )}
             </div>
           </div>
         )}

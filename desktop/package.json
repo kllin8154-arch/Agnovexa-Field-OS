@@ -1,13 +1,16 @@
 {
   "name": "agnovexa-opsdesk",
   "private": true,
-  "version": "0.1.0",
+  "version": "0.2.0",
   "type": "module",
   "scripts": {
     "dev": "vite --host 127.0.0.1 --port 1420",
     "build": "tsc --noEmit -p tsconfig.json && tsc --noEmit -p tsconfig.node.json && vite build",
     "preview": "vite preview --host 127.0.0.1 --port 4173",
     "tauri": "tauri",
+    "prepare:icons": "tauri icon app-icon.png --output src-tauri/icons",
+    "tauri:dev": "npm run prepare:icons && tauri dev",
+    "tauri:build:windows": "npm run prepare:icons && tauri build --bundles nsis",
     "test": "vitest run",
     "check": "npm run test && npm run build"
   },
@@ -20,12 +23,12 @@
   },
   "devDependencies": {
     "@tauri-apps/cli": "^2.0.0",
+    "@types/node": "^22.0.0",
     "@types/react": "^19.0.0",
     "@types/react-dom": "^19.0.0",
     "@vitejs/plugin-react": "^5.0.0",
     "typescript": "^5.8.0",
     "vite": "^7.0.0",
-    "@types/node": "^22.0.0",
     "vitest": "^3.2.0"
   }
 }

@@ -18,41 +18,52 @@ export function SettingsPage() {
 
   return (
     <div className="page-stack">
-      <Notice tone="success" title="最小权限基线">
-        当前桌面壳只开放本地 SQLite 与只读运行策略查询；未注册 Shell、SSH、SFTP、文件系统全盘访问或远程写入能力。
+      <Notice tone="success" title="永久人工执行边界">
+        当前桌面端不注册 SSH、Shell、SFTP、进程启动、数据库连接或远程文件写入能力。命令、SQL、配置 Diff、验证和回滚都只能生成、复制并由现场工程师人工执行。
       </Notice>
 
       <Panel eyebrow="RUNTIME POLICY" title="固化运行边界">
         <div className="policy-grid">
-          <div><span>执行模式</span><strong>{policy.executionMode}</strong><Tag>人工复制执行</Tag></div>
-          <div><span>网络假设</span><strong>{policy.networkAssumption}</strong><Tag>完全离线优先</Tag></div>
-          <div><span>SSH 能力</span><strong>{policy.sshCapability}</strong><Tag>未注册</Tag></div>
-          <div><span>远程写能力</span><strong>{policy.remoteWriteCapability}</strong><Tag>未注册</Tag></div>
+          <div><span>执行模式</span><strong>{policy.executionMode}</strong><Tag>只生成与复制</Tag></div>
+          <div><span>网络假设</span><strong>{policy.networkAssumption}</strong><Tag>本地优先</Tag></div>
+          <div><span>SSH / Shell</span><strong>{policy.sshCapability}</strong><Tag>永久不注册</Tag></div>
+          <div><span>远程写能力</span><strong>{policy.remoteWriteCapability}</strong><Tag>永久关闭</Tag></div>
           <div><span>知识隔离</span><strong>{policy.knowledgeIsolation}</strong><Tag>内部优先</Tag></div>
           <div><span>本地存储</span><strong>{storage.mode}</strong><Tag>{storage.detail}</Tag></div>
         </div>
       </Panel>
 
       <div className="two-column-grid">
-        <Panel eyebrow="MODEL / HARNESS" title="DeepSeek Harness 接入边界">
+        <Panel eyebrow="AI PROVIDERS" title="多模型接口策略">
           <ul className="check-list">
-            <li>只允许生成计划、命令草案、诊断归纳和知识条目。</li>
-            <li>不得注册生产命令执行工具。</li>
-            <li>缺失公司专有软件 SOP 时停止推断。</li>
-            <li>外部检索前先脱敏，结果始终标记为 draft。</li>
+            <li>支持 DeepSeek、OpenAI、通义千问、Kimi、智谱 GLM、硅基流动、本地服务和自定义 OpenAI 兼容接口。</li>
+            <li>只有用户点击“生成草案”或“测试接口”时，才向当前选中的 Provider 发起请求。</li>
+            <li>发送前自动脱敏内网 IP、连接凭据、Authorization、Token、API Key 和私钥块。</li>
+            <li>Provider 元数据可保存在本机；API Key 只保留在当前运行内存中，关闭程序即清空。</li>
+            <li>AI 只能生成计划、命令/SQL 草案、报错分析和知识草稿，不能执行任何操作。</li>
           </ul>
-          <button className="secondary-button" type="button">配置本地 Harness（后续）</button>
+          <a className="secondary-button settings-link" href="#/ai">打开 AI 助手</a>
         </Panel>
 
-        <Panel eyebrow="CREDENTIALS" title="凭据策略">
+        <Panel eyebrow="ERROR LOOP" title="人工报错闭环">
           <ul className="warning-list">
-            <li>SQLite 只保存 credential_reference_id，不保存明文口令。</li>
-            <li>生产密码、Token、私钥不进入知识库、Git、报告或执行证据。</li>
-            <li>凭据能力尚未启用；后续接入系统 Credential Manager / Keychain。</li>
+            <li>退出码为 0 时，人工提交证据后才允许进入独立验证。</li>
+            <li>退出码非 0 时，不得把任务标记为验证通过。</li>
+            <li>可将实际命令/SQL、退出码和 stdout/stderr 一键带入 AI 助手排障。</li>
+            <li>AI 返回的新命令仍需重新人工审阅、人工执行并回填新证据。</li>
+            <li>只有现场验证成功并完成人工审核，知识条目才能升级为 verified。</li>
           </ul>
-          <button className="secondary-button" type="button" disabled>凭据库尚未启用</button>
         </Panel>
       </div>
+
+      <Panel eyebrow="SECRETS" title="敏感信息策略">
+        <div className="policy-grid">
+          <div><span>API Key</span><strong>会话内存</strong><Tag>不落 SQLite</Tag></div>
+          <div><span>生产密码</span><strong>禁止存储</strong><Tag>不进报告/知识库</Tag></div>
+          <div><span>执行证据</span><strong>保存脱敏副本</strong><Tag>保留人工事实</Tag></div>
+          <div><span>外部知识</span><strong>draft / reviewed</strong><Tag>人工验证后升级</Tag></div>
+        </div>
+      </Panel>
     </div>
   );
 }

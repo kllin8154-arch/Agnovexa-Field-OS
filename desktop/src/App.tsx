@@ -1,5 +1,6 @@
 import { HashRouter, Route, Routes } from "react-router-dom";
 import { AppShell } from "./components/AppShell";
+import { AiWorkspacePage } from "./pages/AiWorkspacePage";
 import { AssetsPage } from "./pages/AssetsPage";
 import { ChangesPage } from "./pages/ChangesPage";
 import { DashboardPage } from "./pages/DashboardPage";
@@ -18,6 +19,7 @@ export default function App() {
           <Route path="diagnostics" element={<DiagnosticsPage />} />
           <Route path="deployments" element={<DeploymentPage />} />
           <Route path="changes" element={<ChangesPage />} />
+          <Route path="ai" element={<AiWorkspacePage />} />
           <Route path="knowledge" element={<KnowledgePage />} />
           <Route path="settings" element={<SettingsPage />} />
         </Route>

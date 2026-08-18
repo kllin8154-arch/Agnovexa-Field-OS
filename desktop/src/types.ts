@@ -26,7 +26,7 @@ export interface Asset {
   serverModel: string;
   operatingSystem: string;
   architecture: "x86_64" | "aarch64" | "unknown";
-  connectionMode: "manual" | "read-only-planned";
+  connectionMode: "manual";
   snapshotStatus: "完整" | "缺失" | "冲突" | "未采集";
   lastSnapshotAt?: string;
   tags: string[];
