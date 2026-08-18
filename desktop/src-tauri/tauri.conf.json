@@ -47,8 +47,7 @@
     "longDescription": "Agnovexa OpsDesk 生成部署方案、命令、SQL、验证和回滚草案；所有目标环境操作均由工程师人工执行并回传证据。",
     "windows": {
       "webviewInstallMode": {
-        "type": "offlineInstaller",
-        "silent": true
+        "type": "offlineInstaller"
       },
       "nsis": {
         "installMode": "currentUser"
