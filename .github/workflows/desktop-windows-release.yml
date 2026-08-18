@@ -1,20 +1,13 @@
-name: Desktop Windows Release
+name: Desktop Windows Release (Manual Fallback)
 
 on:
-  push:
-    branches:
-      - "agent/desktop-mvp-foundation"
-      - "main"
-    paths:
-      - "desktop/**"
-      - ".github/workflows/desktop-windows-release.yml"
   workflow_dispatch:
 
 permissions:
   contents: write
 
 concurrency:
-  group: opsdesk-windows-release-${{ github.ref }}
+  group: opsdesk-windows-release-manual
   cancel-in-progress: true
 
 jobs:
@@ -54,16 +47,10 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           projectPath: desktop
-          tagName: opsdesk-v__VERSION__-build.${{ github.run_number }}
-          releaseName: Agnovexa OpsDesk v__VERSION__ · Build ${{ github.run_number }}
+          tagName: opsdesk-v__VERSION__-manual.${{ github.run_number }}
+          releaseName: Agnovexa OpsDesk v__VERSION__ · Manual Build ${{ github.run_number }}
           releaseBody: |
-            Windows x64 离线安装包。
-
-            - 不包含 SSH、Shell、数据库自动执行或远程写入能力。
-            - 命令和 SQL 只能复制后由现场工程师人工执行。
-            - 支持多种 OpenAI Chat Completions 兼容 AI Provider。
-            - API Key 仅保留在当前应用运行内存中。
-            - 安装包内置 WebView2 离线安装器，适合无外网现场。
+            Windows x64 NSIS 离线安装包。所有命令与 SQL 仅供人工审核和人工执行。
           releaseDraft: false
           prerelease: false
           args: --bundles nsis

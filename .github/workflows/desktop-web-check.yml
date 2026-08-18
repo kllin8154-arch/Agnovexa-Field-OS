@@ -8,11 +8,12 @@ on:
       - ".github/workflows/desktop-windows-release.yml"
   push:
     branches:
-      - "agent/desktop-mvp-foundation"
+      - "main"
     paths:
       - "desktop/**"
       - ".github/workflows/desktop-web-check.yml"
       - ".github/workflows/desktop-windows-release.yml"
+  workflow_dispatch:
 
 permissions:
   contents: read
@@ -26,6 +27,8 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
@@ -42,27 +45,23 @@ jobs:
         run: npm run build
 
   tauri-check:
-    runs-on: ubuntu-latest
+    runs-on: windows-latest
     defaults:
       run:
         working-directory: desktop
     steps:
       - name: Checkout
         uses: actions/checkout@v4
-
-      - name: Install Tauri system dependencies
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y --no-install-recommends \
-            libwebkit2gtk-4.1-dev \
-            libappindicator3-dev \
-            librsvg2-dev \
-            patchelf
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
           node-version: 22
+
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@stable
 
       - name: Install frontend dependencies
         run: npm install
@@ -70,21 +69,78 @@ jobs:
       - name: Generate desktop icons
         run: npm run prepare:icons
 
+      - name: Test Tauri backend
+        run: cargo test --quiet --manifest-path src-tauri/Cargo.toml --lib
+
+      - name: Check Tauri backend
+        run: cargo check --quiet --manifest-path src-tauri/Cargo.toml
+
+  windows-release:
+    if: >-
+      (github.event_name == 'pull_request' &&
+       github.event.pull_request.head.repo.full_name == github.repository &&
+       github.event.pull_request.head.ref == 'agent/desktop-mvp-foundation') ||
+      github.event_name == 'push' ||
+      github.event_name == 'workflow_dispatch'
+    needs:
+      - web-build
+      - tauri-check
+    permissions:
+      contents: write
+    runs-on: windows-latest
+    steps:
+      - name: Checkout verified head commit
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
       - name: Setup Rust
         uses: dtolnay/rust-toolchain@stable
 
-      - name: Test and check Tauri backend
-        shell: bash
-        run: |
-          set +e
-          cargo test --quiet --manifest-path src-tauri/Cargo.toml --lib > /tmp/opsdesk-cargo-test.log 2>&1
-          test_status=$?
-          tail -n 160 /tmp/opsdesk-cargo-test.log
-          if [ "$test_status" -ne 0 ]; then
-            exit "$test_status"
-          fi
+      - name: Install dependencies
+        working-directory: desktop
+        run: npm install
 
-          cargo check --quiet --manifest-path src-tauri/Cargo.toml > /tmp/opsdesk-cargo-check.log 2>&1
-          check_status=$?
-          tail -n 160 /tmp/opsdesk-cargo-check.log
-          exit "$check_status"
+      - name: Generate desktop icons
+        working-directory: desktop
+        run: npm run prepare:icons
+
+      - name: Unit tests
+        working-directory: desktop
+        run: npm run test
+
+      - name: Type-check and web build
+        working-directory: desktop
+        run: npm run build
+
+      - name: Build offline NSIS EXE and publish GitHub Release
+        id: tauri
+        uses: tauri-apps/tauri-action@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          projectPath: desktop
+          tagName: opsdesk-v__VERSION__-build.${{ github.run_number }}
+          releaseName: Agnovexa OpsDesk v__VERSION__ · Build ${{ github.run_number }}
+          releaseBody: |
+            Windows x64 NSIS 离线安装包。
+
+            - 不包含 SSH、Shell、数据库自动执行或远程写入能力。
+            - 命令和 SQL 只能复制后由现场工程师人工执行。
+            - 非零退出码必须返回人工执行阶段，可交给所选 AI Provider 继续分析。
+            - 支持 DeepSeek、OpenAI、通义千问、Kimi、智谱 GLM、硅基流动、本地和自定义兼容接口。
+            - API Key 仅保留在当前应用运行内存中。
+            - 安装包内置 WebView2 离线安装器，适合无外网现场。
+          releaseCommitish: ${{ github.event.pull_request.head.sha || github.sha }}
+          releaseDraft: false
+          prerelease: false
+          args: --bundles nsis
+          releaseAssetNamePattern: Agnovexa-OpsDesk-Setup[ext]
+          uploadWorkflowArtifacts: true
+          workflowArtifactNamePattern: Agnovexa-OpsDesk-Windows-[arch]
+          retryAttempts: 1
