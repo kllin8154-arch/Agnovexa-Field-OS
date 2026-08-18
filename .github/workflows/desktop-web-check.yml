@@ -61,4 +61,10 @@ jobs:
         uses: dtolnay/rust-toolchain@stable
 
       - name: Check Tauri backend
-        run: cargo check --manifest-path src-tauri/Cargo.toml
+        shell: bash
+        run: |
+          set +e
+          cargo check --quiet --manifest-path src-tauri/Cargo.toml > /tmp/opsdesk-cargo-check.log 2>&1
+          status=$?
+          tail -n 160 /tmp/opsdesk-cargo-check.log
+          exit "$status"
