@@ -18,14 +18,14 @@ export function Panel({
     <section className={`panel ${className}`.trim()}>
       {(title || eyebrow || actions) && (
         <header className="panel-header">
-          <div>
+          <div className="panel-title-group">
             {eyebrow && <div className="eyebrow">{eyebrow}</div>}
             {title && <h2>{title}</h2>}
           </div>
           {actions && <div className="panel-actions">{actions}</div>}
         </header>
       )}
-      {children}
+      <div className="panel-body">{children}</div>
     </section>
   );
 }
@@ -75,23 +75,28 @@ export function CodeBlock({
   value: string;
   label?: string;
 }) {
-  const [copied, setCopied] = useState(false);
+  const [copyState, setCopyState] = useState<"idle" | "copied" | "failed">("idle");
 
   const copy = async () => {
-    await navigator.clipboard.writeText(value);
-    setCopied(true);
-    window.setTimeout(() => setCopied(false), 1600);
+    try {
+      await navigator.clipboard.writeText(value);
+      setCopyState("copied");
+    } catch {
+      setCopyState("failed");
+    } finally {
+      window.setTimeout(() => setCopyState("idle"), 1800);
+    }
   };
 
   return (
     <div className="code-shell">
       <div className="code-toolbar">
         <span>{label ?? "命令预览"}</span>
-        <button className="text-button" type="button" onClick={copy}>
-          {copied ? "已复制" : "复制"}
+        <button className="text-button" type="button" onClick={() => void copy()}>
+          {copyState === "copied" ? "已复制" : copyState === "failed" ? "复制失败" : "复制"}
         </button>
       </div>
-      <pre>
+      <pre tabIndex={0}>
         <code>{value}</code>
       </pre>
     </div>
@@ -108,9 +113,12 @@ export function Notice({
   children: ReactNode;
 }) {
   return (
-    <div className={`notice notice-${tone}`}>
-      <strong>{title}</strong>
-      <div>{children}</div>
+    <div className={`notice notice-${tone}`} role={tone === "danger" ? "alert" : "status"}>
+      <span className="notice-indicator" aria-hidden="true" />
+      <div>
+        <strong>{title}</strong>
+        <div className="notice-content">{children}</div>
+      </div>
     </div>
   );
 }

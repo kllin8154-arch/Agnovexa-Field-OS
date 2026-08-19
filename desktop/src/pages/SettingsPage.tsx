@@ -1,10 +1,13 @@
 import { useEffect, useState } from "react";
+import { Link } from "react-router-dom";
+import { Notice, Panel, Tag } from "../components/Ui";
 import { probeStorage, type StorageProbe } from "../lib/database";
 import { DEFAULT_RUNTIME_POLICY, loadRuntimePolicy } from "../lib/runtimePolicy";
+import { THEME_OPTIONS, useTheme } from "../lib/theme";
 import type { RuntimePolicy } from "../types";
-import { Notice, Panel, Tag } from "../components/Ui";
 
 export function SettingsPage() {
+  const { mode, resolvedTheme, setMode } = useTheme();
   const [policy, setPolicy] = useState<RuntimePolicy>(DEFAULT_RUNTIME_POLICY);
   const [storage, setStorage] = useState<StorageProbe>({
     mode: "browser-preview",
@@ -17,53 +20,83 @@ export function SettingsPage() {
   }, []);
 
   return (
-    <div className="page-stack">
-      <Notice tone="success" title="永久人工执行边界">
-        当前桌面端不注册 SSH、Shell、SFTP、进程启动、数据库连接或远程文件写入能力。命令、SQL、配置 Diff、验证和回滚都只能生成、复制并由现场工程师人工执行。
-      </Notice>
-
-      <Panel eyebrow="RUNTIME POLICY" title="固化运行边界">
-        <div className="policy-grid">
-          <div><span>执行模式</span><strong>{policy.executionMode}</strong><Tag>只生成与复制</Tag></div>
-          <div><span>网络假设</span><strong>{policy.networkAssumption}</strong><Tag>本地优先</Tag></div>
-          <div><span>SSH / Shell</span><strong>{policy.sshCapability}</strong><Tag>永久不注册</Tag></div>
-          <div><span>远程写能力</span><strong>{policy.remoteWriteCapability}</strong><Tag>永久关闭</Tag></div>
-          <div><span>知识隔离</span><strong>{policy.knowledgeIsolation}</strong><Tag>内部优先</Tag></div>
-          <div><span>本地存储</span><strong>{storage.mode}</strong><Tag>{storage.detail}</Tag></div>
+    <div className="page-stack settings-page">
+      <Panel eyebrow="APPEARANCE" title="外观与主题">
+        <div className="theme-choice-grid">
+          {THEME_OPTIONS.map((option) => (
+            <button
+              key={option.value}
+              type="button"
+              className={`theme-choice-card${mode === option.value ? " active" : ""}`}
+              onClick={() => setMode(option.value)}
+            >
+              <div className={`theme-preview theme-preview-${option.value}`}>
+                <span />
+                <div><i /><i /><i /></div>
+              </div>
+              <strong>{option.label}</strong>
+              <span>{option.description}</span>
+              {mode === option.value && <small>当前选择</small>}
+            </button>
+          ))}
+        </div>
+        <div className="settings-inline-note">
+          当前实际主题：<strong>{resolvedTheme === "dark" ? "深色" : "明亮"}</strong>。主题设置仅保存在本机，不影响项目数据。
         </div>
       </Panel>
 
-      <div className="two-column-grid">
-        <Panel eyebrow="AI PROVIDERS" title="多模型接口策略">
-          <ul className="check-list">
-            <li>支持 DeepSeek、OpenAI、通义千问、Kimi、智谱 GLM、硅基流动、本地服务和自定义 OpenAI 兼容接口。</li>
-            <li>只有用户点击“生成草案”或“测试接口”时，才向当前选中的 Provider 发起请求。</li>
-            <li>发送前自动脱敏内网 IP、连接凭据、Authorization、Token、API Key 和私钥块。</li>
-            <li>Provider 元数据可保存在本机；API Key 只保留在当前运行内存中，关闭程序即清空。</li>
-            <li>AI 只能生成计划、命令/SQL 草案、报错分析和知识草稿，不能执行任何操作。</li>
-          </ul>
-          <a className="secondary-button settings-link" href="#/ai">打开 AI 助手</a>
+      <Notice tone="success" title="不可绕过的人工执行边界">
+        当前桌面端不注册 SSH、Shell、SFTP、远程文件、进程启动或生产数据库执行能力。命令、SQL、配置 Diff、验证和回滚只能生成与复制，由现场工程师人工执行。
+      </Notice>
+
+      <div className="two-column-grid settings-grid">
+        <Panel eyebrow="RUNTIME POLICY" title="运行策略">
+          <div className="policy-grid compact-policy-grid">
+            <div><span>执行模式</span><strong>{policy.executionMode}</strong><Tag>人工执行</Tag></div>
+            <div><span>网络假设</span><strong>{policy.networkAssumption}</strong><Tag>本地优先</Tag></div>
+            <div><span>SSH / Shell</span><strong>{policy.sshCapability}</strong><Tag>永久关闭</Tag></div>
+            <div><span>远程写能力</span><strong>{policy.remoteWriteCapability}</strong><Tag>永久关闭</Tag></div>
+            <div><span>知识隔离</span><strong>{policy.knowledgeIsolation}</strong><Tag>内部优先</Tag></div>
+            <div><span>数据模式</span><strong>{storage.mode}</strong><Tag>{storage.mode === "sqlite" ? "可持久化" : "只读预览"}</Tag></div>
+          </div>
+          <p className="settings-detail">{storage.detail}</p>
         </Panel>
 
-        <Panel eyebrow="ERROR LOOP" title="人工报错闭环">
-          <ul className="warning-list">
-            <li>退出码为 0 时，人工提交证据后才允许进入独立验证。</li>
-            <li>退出码非 0 时，不得把任务标记为验证通过。</li>
-            <li>可将实际命令/SQL、退出码和 stdout/stderr 一键带入 AI 助手排障。</li>
-            <li>AI 返回的新命令仍需重新人工审阅、人工执行并回填新证据。</li>
-            <li>只有现场验证成功并完成人工审核，知识条目才能升级为 verified。</li>
-          </ul>
+        <Panel eyebrow="AI SERVICES" title="AI 配置与使用已分离">
+          <div className="settings-link-cards">
+            <Link to="/ai-settings">
+              <span>配置</span>
+              <strong>AI 服务配置</strong>
+              <p>管理 Provider、Base URL、模型、启用状态和当前会话 API Key。</p>
+            </Link>
+            <Link to="/ai">
+              <span>使用</span>
+              <strong>AI 工作台</strong>
+              <p>生成部署方案、分析人工报错、审查 SQL 和整理知识草稿。</p>
+            </Link>
+          </div>
         </Panel>
       </div>
 
-      <Panel eyebrow="SECRETS" title="敏感信息策略">
-        <div className="policy-grid">
-          <div><span>API Key</span><strong>会话内存</strong><Tag>不落 SQLite</Tag></div>
-          <div><span>生产密码</span><strong>禁止存储</strong><Tag>不进报告/知识库</Tag></div>
-          <div><span>执行证据</span><strong>保存脱敏副本</strong><Tag>保留人工事实</Tag></div>
-          <div><span>外部知识</span><strong>draft / reviewed</strong><Tag>人工验证后升级</Tag></div>
-        </div>
-      </Panel>
+      <div className="two-column-grid settings-grid">
+        <Panel eyebrow="SECRETS" title="敏感信息策略">
+          <ul className="check-list refined-list">
+            <li>API Key 只保留在当前应用进程内存，关闭应用后清空。</li>
+            <li>Provider 元数据可保存在本机，但不会包含真实密钥。</li>
+            <li>发送前自动脱敏内网 IP、连接凭据、Authorization、Token 和私钥块。</li>
+            <li>外部 AI 返回内容只能作为草案，不能自动升级为已验证知识。</li>
+          </ul>
+        </Panel>
+
+        <Panel eyebrow="PRODUCTION CHECK" title="生产使用检查">
+          <div className="production-check-grid">
+            <div className={storage.mode === "sqlite" ? "ready" : "warning"}><span>本地数据库</span><strong>{storage.mode === "sqlite" ? "已就绪" : "未就绪"}</strong></div>
+            <div className="ready"><span>人工执行门禁</span><strong>已启用</strong></div>
+            <div className="ready"><span>远程执行能力</span><strong>不存在</strong></div>
+            <div className="ready"><span>AI 显式调用</span><strong>已启用</strong></div>
+          </div>
+        </Panel>
+      </div>
     </div>
   );
 }
