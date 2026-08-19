@@ -52,11 +52,12 @@ export function SettingsPage() {
           <p className="settings-detail">{storage.detail}</p>
         </Panel>
 
-        <Panel eyebrow="WORKSPACE ENTRY" title="配置、使用与归档分离">
-          <div className="settings-link-cards settings-link-cards-three">
+        <Panel eyebrow="WORKSPACE ENTRY" title="配置、使用、模板与归档分离">
+          <div className="settings-link-cards settings-link-cards-four">
             <Link to="/ai-settings"><span>配置</span><strong>AI 服务配置</strong><p>管理 Provider、Base URL、模型、启用状态和当前会话 API Key。</p></Link>
             <Link to="/ai"><span>使用</span><strong>AI 工作台</strong><p>生成部署方案、分析人工报错、审查 SQL 和整理知识草稿。</p></Link>
-            <Link to="/archive"><span>归档</span><strong>数据与归档</strong><p>执行 SQLite 完整性检查、工作区备份恢复和部署报告导出。</p></Link>
+            <Link to="/skills"><span>模板</span><strong>Skill 专库</strong><p>管理结构化前置检查、人工执行、验证和回滚模板。</p></Link>
+            <Link to="/archive"><span>归档</span><strong>数据与归档</strong><p>执行 SQLite 完整性检查、可校验备份恢复和部署报告导出。</p></Link>
           </div>
         </Panel>
       </div>
@@ -79,7 +80,7 @@ export function SettingsPage() {
             <div className="ready"><span>远程执行能力</span><strong>不存在</strong></div>
             <div className="ready"><span>AI 显式调用</span><strong>已启用</strong></div>
             <div className="ready"><span>备份摘要校验</span><strong>SHA-256</strong></div>
-            <div className="ready"><span>部署报告</span><strong>本地生成</strong></div>
+            <div className="ready"><span>Skill 验证门禁</span><strong>已启用</strong></div>
           </div>
         </Panel>
       </div>

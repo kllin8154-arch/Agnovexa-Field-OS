@@ -71,7 +71,8 @@ const navGroups = [
     label: "智能与知识",
     items: [
       { to: "/ai", label: "AI 工作台", icon: "ai" as const },
-      { to: "/knowledge", label: "知识库", icon: "knowledge" as const },
+      { to: "/skills", label: "Skill 专库", icon: "knowledge" as const },
+      { to: "/knowledge", label: "双知识库", icon: "knowledge" as const },
     ],
   },
   {
@@ -91,6 +92,7 @@ const pageTitles: Record<string, { title: string; subtitle: string }> = {
   "/deployments": { title: "部署中心", subtitle: "离线模板、前置检查、验收与回滚" },
   "/changes": { title: "变更中心", subtitle: "命令与 SQL 只供审阅、复制和人工执行" },
   "/ai": { title: "AI 工作台", subtitle: "调用已配置服务，生成方案、排错、SQL 审查与知识草稿" },
+  "/skills": { title: "Skill 专库", subtitle: "结构化模板、人工验证、版本和回滚策略" },
   "/knowledge": { title: "双知识库", subtitle: "内部优先、外部待审、验证后再沉淀" },
   "/archive": { title: "数据与归档", subtitle: "SQLite 完整性、可校验备份恢复与部署报告" },
   "/ai-settings": { title: "AI 服务配置", subtitle: "独立管理 Provider、模型、接口与会话密钥" },
