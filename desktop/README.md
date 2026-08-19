@@ -27,15 +27,27 @@
 ## 开发与检查
 
 ```bash
-npm install
+npm ci
 npm run test
 npm run build
 npm run tauri:dev
 ```
 
+`package-lock.json` 与 `Cargo.lock` 均提交到仓库。CI 使用 `npm ci`、`cargo test --locked` 和 `cargo check --locked`，防止依赖版本在不同时间构建时漂移。
+
+## 视觉验收
+
+每次桌面端 PR 和主分支构建都会：
+
+1. 安装 Noto CJK 字体；
+2. 使用真实 Chrome 渲染构建产物；
+3. 生成明亮与深色工作台截图；
+4. 生成 AI 工作台、AI 服务配置、Skill 专库、双知识库和备份页面截图；
+5. 将截图作为 `opsdesk-visual-qa` GitHub Actions 产物保留，供合并前检查中文排版和主题一致性。
+
 ## Windows Release
 
-主分支通过 CI 后自动构建 NSIS 安装程序并发布到 GitHub Release：
+主分支通过生产依赖审计、Vitest、TypeScript/Vite、视觉烟雾测试和 Windows Tauri/Rust 检查后，自动构建 NSIS 安装程序并发布到 GitHub Release：
 
 ```text
 Agnovexa-OpsDesk-Windows-x64-Setup.exe
