@@ -28,13 +28,15 @@ Agnovexa OpsDesk 是面向离线现场部署、运维排障、人工变更审计
 - 退出码非 0 时保留在 `MANUAL_EXECUTE`，可将脱敏后的错误上下文交给 AI 继续分析。
 - 部署完成必须分别验证文件/包、服务/进程、网络/端口和业务功能。
 
-### AI 与知识
+### AI、Skill 与知识
 
 - AI 配置与 AI 使用完全分离：`AI 服务配置` 管 Provider，`AI 工作台` 处理任务。
 - 支持 DeepSeek、OpenAI、通义千问、Kimi、智谱 GLM、硅基流动、本地和自定义 OpenAI 兼容接口。
 - API Key 只存在于当前应用进程内存，不写入 SQLite、localStorage、知识库、报告、备份或 Git。
-- 双知识库：KB-Inner 内部知识优先，KB-Public 外部资料默认待审核。
-- 外部资料和 AI 结果不能直接成为 `verified`，必须先完成现场验证与人工审核。
+- 新增独立 Skill 专库，保存结构化元数据、提示词、前置检查、待人工执行模板、验证和回滚。
+- 内置 `geoserver.postgis.publish-layer` reviewed 模板；只有登记适用版本、现场验证结果和维护人后，内部 Skill 才能升级为 `verified`。
+- 双知识库检索优先级固定为：已验证 Skill → 内部生产知识 → 内部通用知识 → 已审核公开资料 → 外部待验证建议。
+- KB-Public 条目不能原地成为 `verified`；必须经过人工审核和现场验证，再复制为新的 KB-Inner verified 条目，并保留原外部来源。
 
 ### 数据与归档
 
@@ -48,8 +50,10 @@ Agnovexa OpsDesk 是面向离线现场部署、运维排障、人工变更审计
 ### 界面与发布
 
 - 明亮、深色、跟随系统三套主题已经重做。
-- 工作台、侧边栏、顶部栏、表单、状态卡、代码块、AI 工作区和响应式布局均按桌面生产场景设计。
-- Windows NSIS 安装程序由 GitHub Actions 完成测试、生产依赖审计、构建和 Release 发布。
+- 工作台、侧边栏、顶部栏、表单、状态卡、代码块、AI 工作区、Skill 专库和响应式布局均按桌面生产场景设计。
+- `package-lock.json` 与 `Cargo.lock` 固定依赖版本；CI 使用 `npm ci`、`cargo test --locked` 与 `cargo check --locked`。
+- CI 使用真实 Chrome 和 Noto CJK 字体渲染明暗主题、AI 配置、AI 工作台、Skill、知识库与归档页面，保留视觉 QA 截图。
+- Windows NSIS 安装程序由 GitHub Actions 完成测试、高危生产依赖审计、构建和 Release 发布。
 
 ## 目录
 
@@ -65,7 +69,7 @@ Agnovexa-Field-OS/
 
 ```bash
 cd desktop
-npm install
+npm ci
 npm run check
 npm run tauri:dev
 ```
@@ -91,6 +95,7 @@ desktop/src-tauri/target/release/bundle/nsis/
 4. SQLite 数据库保存在当前 Windows 用户的应用数据目录，应建立定期备份、异地保存和恢复演练制度。
 5. 高风险命令和 SQL 只能作为待人工执行文本保存，程序不会代为执行。
 6. 生成的部署报告默认为 draft，必须经实施人员和项目负责人复核后归档。
+7. `reviewed` 只代表已人工审阅，不代表已在目标环境验证；只有登记现场证据后才可升级为 `verified`。
 
 ## 许可证
 

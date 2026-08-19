@@ -23,13 +23,23 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: 22
+          cache: npm
+          cache-dependency-path: desktop/package-lock.json
 
       - name: Setup Rust
         uses: dtolnay/rust-toolchain@stable
 
-      - name: Install dependencies
+      - name: Install locked dependencies
         working-directory: desktop
-        run: npm install
+        run: npm ci
+
+      - name: Audit production dependencies
+        working-directory: desktop
+        run: npm audit --omit=dev --audit-level=high
+
+      - name: Verify locked Rust dependency graph
+        working-directory: desktop
+        run: cargo metadata --locked --format-version 1 --manifest-path src-tauri/Cargo.toml > $null
 
       - name: Generate desktop icons
         working-directory: desktop
@@ -43,6 +53,14 @@ jobs:
         working-directory: desktop
         run: npm run build
 
+      - name: Test Tauri backend with lockfile
+        working-directory: desktop
+        run: cargo test --locked --quiet --manifest-path src-tauri/Cargo.toml --lib
+
+      - name: Check Tauri backend with lockfile
+        working-directory: desktop
+        run: cargo check --locked --quiet --manifest-path src-tauri/Cargo.toml
+
       - name: Build NSIS EXE and publish GitHub Release
         uses: tauri-apps/tauri-action@v1
         env:
@@ -52,7 +70,12 @@ jobs:
           tagName: opsdesk-v__VERSION__-manual.${{ github.run_number }}
           releaseName: Agnovexa OpsDesk v__VERSION__ · Manual Build ${{ github.run_number }}
           releaseBody: |
-            Windows x64 NSIS 安装程序。所有命令与 SQL 仅供人工审核和人工执行。
+            Windows x64 NSIS 安装程序。
+
+            - 所有命令与 SQL 仅供人工审核和人工执行。
+            - 包含可校验备份恢复、部署报告、Skill 专库和双知识库可信发布。
+            - API Key 不进入 SQLite、备份、报告、知识库或 Git。
+            - 使用已提交的 npm 与 Cargo 锁文件完成可重复构建。
           releaseCommitish: main
           releaseDraft: false
           prerelease: false
