@@ -11,6 +11,7 @@ type IconName =
   | "diagnostics"
   | "deploy"
   | "changes"
+  | "verification"
   | "ai"
   | "knowledge"
   | "archive"
@@ -41,6 +42,7 @@ function Icon({ name, ...props }: SVGProps<SVGSVGElement> & { name: IconName }) 
     diagnostics: <><path d="M4 5h16v11H4z" /><path d="m7 9 2 2 3-4M8 20h8M12 16v4" /></>,
     deploy: <><path d="M12 3v12" /><path d="m7 8 5-5 5 5" /><path d="M5 13v7h14v-7" /></>,
     changes: <><path d="M7 3h10l2 2v16H5V5z" /><path d="M9 9h6M9 13h6M9 17h4" /></>,
+    verification: <><circle cx="12" cy="12" r="9" /><path d="m8 12 2.6 2.6L16.5 9" /></>,
     ai: <><path d="M8 3h8l2 3v12l-3 3H9l-3-3V6z" /><path d="M9 10h.01M15 10h.01M9 15c2 1.3 4 1.3 6 0" /><path d="M12 3V1" /></>,
     knowledge: <><path d="M4 5.5A2.5 2.5 0 0 1 6.5 3H11v16H6.5A2.5 2.5 0 0 0 4 21.5z" /><path d="M20 5.5A2.5 2.5 0 0 0 17.5 3H13v16h4.5A2.5 2.5 0 0 1 20 21.5z" /></>,
     archive: <><path d="M4 7h16v13H4z" /><path d="M3 3h18v4H3zM9 11h6" /></>,
@@ -65,6 +67,7 @@ const navGroups = [
       { to: "/diagnostics", label: "现场诊断", icon: "diagnostics" as const },
       { to: "/deployments", label: "部署中心", icon: "deploy" as const },
       { to: "/changes", label: "变更中心", icon: "changes" as const },
+      { to: "/verification", label: "验收中心", icon: "verification" as const },
     ],
   },
   {
@@ -91,6 +94,7 @@ const pageTitles: Record<string, { title: string; subtitle: string }> = {
   "/diagnostics": { title: "现场诊断", subtitle: "生成只读采集包，人工执行并回传证据" },
   "/deployments": { title: "部署中心", subtitle: "离线模板、前置检查、验收与回滚" },
   "/changes": { title: "变更中心", subtitle: "命令与 SQL 只供审阅、复制和人工执行" },
+  "/verification": { title: "验收中心", subtitle: "文件、服务、网络与业务四层人工验收和关单" },
   "/ai": { title: "AI 工作台", subtitle: "调用已配置服务，生成方案、排错、SQL 审查与知识草稿" },
   "/skills": { title: "Skill 专库", subtitle: "结构化模板、人工验证、版本和回滚策略" },
   "/knowledge": { title: "双知识库", subtitle: "内部优先、外部待审、验证后再沉淀" },
