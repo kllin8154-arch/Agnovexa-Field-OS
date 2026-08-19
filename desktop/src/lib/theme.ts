@@ -6,7 +6,8 @@ export type ResolvedTheme = "light" | "dark";
 const STORAGE_KEY = "agnovexa.opsdesk.theme.v1";
 const EVENT_NAME = "agnovexa:theme-change";
 
-function systemTheme(): ResolvedTheme {
+function systemTheme(prefersDark?: boolean): ResolvedTheme {
+  if (typeof prefersDark === "boolean") return prefersDark ? "dark" : "light";
   if (typeof window === "undefined") return "dark";
   return window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
 }
@@ -17,8 +18,11 @@ export function loadThemePreference(): ThemePreference {
   return stored === "light" || stored === "dark" || stored === "system" ? stored : "system";
 }
 
-export function resolveTheme(preference = loadThemePreference()): ResolvedTheme {
-  return preference === "system" ? systemTheme() : preference;
+export function resolveTheme(
+  preference = loadThemePreference(),
+  prefersDark?: boolean,
+): ResolvedTheme {
+  return preference === "system" ? systemTheme(prefersDark) : preference;
 }
 
 function apply(preference: ThemePreference): void {
