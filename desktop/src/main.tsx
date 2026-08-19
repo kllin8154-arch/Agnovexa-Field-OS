@@ -7,6 +7,7 @@ import "./styles.css";
 import "./ai.css";
 import "./archive.css";
 import "./production.css";
+import "./verification.css";
 import "./design-system.css";
 
 createRoot(document.getElementById("root")!).render(

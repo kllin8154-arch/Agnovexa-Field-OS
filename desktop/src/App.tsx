@@ -12,6 +12,7 @@ import { KnowledgePage } from "./pages/KnowledgePage";
 import { ProjectsPage } from "./pages/ProjectsPage";
 import { SettingsPage } from "./pages/SettingsPage";
 import { SkillsPage } from "./pages/SkillsPage";
+import { VerificationPage } from "./pages/VerificationPage";
 
 function NotFoundPage() {
   return (
@@ -37,6 +38,7 @@ export default function App() {
           <Route path="diagnostics" element={<DiagnosticsPage />} />
           <Route path="deployments" element={<DeploymentPage />} />
           <Route path="changes" element={<ChangesPage />} />
+          <Route path="verification" element={<VerificationPage />} />
           <Route path="ai" element={<AiWorkspacePage />} />
           <Route path="ai-settings" element={<AiProviderSettingsPage />} />
           <Route path="skills" element={<SkillsPage />} />
