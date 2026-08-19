@@ -1,0 +1,77 @@
+name: Apply OpsDesk production UI payload
+
+on:
+  push:
+    branches:
+      - agent/production-ui-theme-ai-split
+    paths:
+      - ".opsdesk-bootstrap/**"
+      - ".github/workflows/opsdesk-bootstrap-production.yml"
+
+permissions:
+  contents: write
+
+concurrency:
+  group: opsdesk-production-ui-bootstrap
+  cancel-in-progress: true
+
+jobs:
+  apply-payload:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout payload commit
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 0
+
+      - name: Decode and apply production files
+        shell: bash
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          import base64
+          import gzip
+          import json
+          import shutil
+
+          root = Path.cwd().resolve()
+          bootstrap = root / ".opsdesk-bootstrap"
+          parts = sorted(bootstrap.glob("payload.part*"))
+          if not parts:
+              raise SystemExit("No payload parts found")
+
+          encoded = "".join(part.read_text(encoding="utf-8").strip() for part in parts)
+          payload = json.loads(gzip.decompress(base64.b64decode(encoded)).decode("utf-8"))
+          if not isinstance(payload, dict) or len(payload) < 20:
+              raise SystemExit("Payload is incomplete")
+
+          for relative, content in payload.items():
+              candidate = (root / relative).resolve()
+              if root not in candidate.parents and candidate != root:
+                  raise SystemExit(f"Unsafe path: {relative}")
+              if not isinstance(content, str):
+                  raise SystemExit(f"Non-text payload: {relative}")
+              candidate.parent.mkdir(parents=True, exist_ok=True)
+              candidate.write_text(content, encoding="utf-8", newline="\n")
+
+          shutil.rmtree(bootstrap)
+          workflow = root / ".github/workflows/opsdesk-bootstrap-production.yml"
+          workflow.unlink()
+          print(f"Applied {len(payload)} production files")
+          PY
+
+      - name: Validate and commit generated source
+        shell: bash
+        run: |
+          git diff --check
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          if git diff --cached --quiet; then
+            echo "No generated changes found" >&2
+            exit 1
+          fi
+          git commit -m "feat: rebuild production UI and split AI configuration"
+          git push origin "HEAD:${GITHUB_REF_NAME}"
