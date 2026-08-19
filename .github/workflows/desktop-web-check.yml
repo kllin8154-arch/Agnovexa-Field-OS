@@ -25,6 +25,49 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  lockfiles:
+    if: >-
+      github.event_name == 'pull_request' &&
+      github.event.pull_request.head.repo.full_name == github.repository &&
+      github.event.pull_request.head.ref == 'agent/production-kb-backup-skills'
+    permissions:
+      contents: write
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout pull request branch
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.ref }}
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Generate npm lockfile
+        working-directory: desktop
+        run: npm install --package-lock-only --ignore-scripts
+
+      - name: Generate Cargo lockfile
+        working-directory: desktop
+        run: cargo generate-lockfile --manifest-path src-tauri/Cargo.toml
+
+      - name: Commit lockfiles when changed
+        shell: bash
+        run: |
+          if git diff --quiet -- desktop/package-lock.json desktop/src-tauri/Cargo.lock; then
+            echo "Lockfiles are already current."
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add desktop/package-lock.json desktop/src-tauri/Cargo.lock
+          git commit -m "build: lock npm and Rust dependencies"
+          git push origin HEAD:${{ github.event.pull_request.head.ref }}
+
   web-build:
     runs-on: ubuntu-latest
     defaults:
@@ -52,14 +95,6 @@ jobs:
 
       - name: Type-check and web build
         run: npm run build
-
-      - name: Upload npm lockfile for review
-        uses: actions/upload-artifact@v4
-        with:
-          name: opsdesk-package-lock
-          path: desktop/package-lock.json
-          if-no-files-found: error
-          retention-days: 3
 
   tauri-check:
     runs-on: windows-latest
@@ -91,14 +126,6 @@ jobs:
 
       - name: Check Tauri backend
         run: cargo check --quiet --manifest-path src-tauri/Cargo.toml
-
-      - name: Upload Cargo lockfile for review
-        uses: actions/upload-artifact@v4
-        with:
-          name: opsdesk-cargo-lock
-          path: desktop/src-tauri/Cargo.lock
-          if-no-files-found: error
-          retention-days: 3
 
   windows-release:
     if: >-
