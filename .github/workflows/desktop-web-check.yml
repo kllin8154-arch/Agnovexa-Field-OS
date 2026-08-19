@@ -27,49 +27,6 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  lockfiles:
-    if: >-
-      github.event_name == 'pull_request' &&
-      github.event.pull_request.head.repo.full_name == github.repository &&
-      github.event.pull_request.head.ref == 'agent/integrate-skills-knowledge-trust'
-    permissions:
-      contents: write
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout pull request branch
-        uses: actions/checkout@v4
-        with:
-          ref: ${{ github.event.pull_request.head.ref }}
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: 22
-
-      - name: Setup Rust
-        uses: dtolnay/rust-toolchain@stable
-
-      - name: Generate npm lockfile
-        working-directory: desktop
-        run: npm install --package-lock-only --ignore-scripts
-
-      - name: Generate Cargo lockfile
-        working-directory: desktop
-        run: cargo generate-lockfile --manifest-path src-tauri/Cargo.toml
-
-      - name: Commit lockfiles when changed
-        shell: bash
-        run: |
-          git add desktop/package-lock.json desktop/src-tauri/Cargo.lock
-          if git diff --cached --quiet; then
-            echo "Lockfiles are already current."
-            exit 0
-          fi
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git commit -m "build: lock npm and Rust dependencies"
-          git push origin HEAD:${{ github.event.pull_request.head.ref }}
-
   web-build:
     runs-on: ubuntu-latest
     defaults:
@@ -85,11 +42,13 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: 22
+          cache: npm
+          cache-dependency-path: desktop/package-lock.json
 
-      - name: Install dependencies
-        run: npm install --no-audit --no-fund
+      - name: Install locked dependencies
+        run: npm ci
 
-      - name: Production dependency audit
+      - name: Audit production dependencies
         run: npm audit --omit=dev --audit-level=high
 
       - name: Unit tests
@@ -97,6 +56,65 @@ jobs:
 
       - name: Type-check and web build
         run: npm run build
+
+      - name: Install CJK font for readable visual QA
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends fonts-noto-cjk
+          fc-cache -f
+
+      - name: Render light and dark UI smoke screenshots
+        shell: bash
+        run: |
+          set -euo pipefail
+          BROWSER="$(command -v google-chrome-stable || command -v google-chrome || command -v chromium || command -v chromium-browser || true)"
+          test -n "$BROWSER"
+          rm -rf visual-qa /tmp/opsdesk-chrome-light /tmp/opsdesk-chrome-dark
+          mkdir -p visual-qa
+          python3 -m http.server 4173 --directory dist >visual-qa/static-server.log 2>&1 &
+          SERVER_PID=$!
+          trap 'kill "$SERVER_PID" 2>/dev/null || true' EXIT
+          for _ in $(seq 1 30); do
+            if curl -fsS http://127.0.0.1:4173/ >/dev/null; then break; fi
+            sleep 1
+          done
+          curl -fsS http://127.0.0.1:4173/ >/dev/null
+
+          COMMON=(--headless --no-sandbox --disable-gpu --hide-scrollbars --run-all-compositor-stages-before-draw --virtual-time-budget=2500 --window-size=1440,900)
+          "$BROWSER" "${COMMON[@]}" --user-data-dir=/tmp/opsdesk-chrome-light --screenshot=visual-qa/dashboard-light.png http://127.0.0.1:4173/#/
+          "$BROWSER" "${COMMON[@]}" --user-data-dir=/tmp/opsdesk-chrome-light --screenshot=visual-qa/ai-settings-light.png http://127.0.0.1:4173/#/ai-settings
+          "$BROWSER" "${COMMON[@]}" --user-data-dir=/tmp/opsdesk-chrome-light --screenshot=visual-qa/knowledge-light.png http://127.0.0.1:4173/#/knowledge
+          "$BROWSER" "${COMMON[@]}" --user-data-dir=/tmp/opsdesk-chrome-light --screenshot=visual-qa/archive-light.png http://127.0.0.1:4173/#/archive
+          "$BROWSER" "${COMMON[@]}" --user-data-dir=/tmp/opsdesk-chrome-dark --force-dark-mode --screenshot=visual-qa/dashboard-dark.png http://127.0.0.1:4173/#/
+          "$BROWSER" "${COMMON[@]}" --user-data-dir=/tmp/opsdesk-chrome-dark --force-dark-mode --screenshot=visual-qa/ai-workspace-dark.png http://127.0.0.1:4173/#/ai
+          "$BROWSER" "${COMMON[@]}" --user-data-dir=/tmp/opsdesk-chrome-dark --force-dark-mode --screenshot=visual-qa/skills-dark.png http://127.0.0.1:4173/#/skills
+          "$BROWSER" "${COMMON[@]}" --user-data-dir=/tmp/opsdesk-chrome-dark --force-dark-mode --screenshot=visual-qa/settings-dark.png http://127.0.0.1:4173/#/settings
+
+          test -s visual-qa/dashboard-light.png
+          test -s visual-qa/ai-settings-light.png
+          test -s visual-qa/knowledge-light.png
+          test -s visual-qa/archive-light.png
+          test -s visual-qa/dashboard-dark.png
+          test -s visual-qa/ai-workspace-dark.png
+          test -s visual-qa/skills-dark.png
+          test -s visual-qa/settings-dark.png
+          file visual-qa/*.png
+
+      - name: Upload built web UI for visual QA
+        uses: actions/upload-artifact@v4
+        with:
+          name: opsdesk-web-preview
+          path: desktop/dist
+          if-no-files-found: error
+          retention-days: 7
+
+      - name: Upload visual smoke screenshots
+        uses: actions/upload-artifact@v4
+        with:
+          name: opsdesk-visual-qa
+          path: desktop/visual-qa
+          if-no-files-found: error
+          retention-days: 14
 
   tauri-check:
     runs-on: windows-latest
@@ -113,21 +131,23 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: 22
+          cache: npm
+          cache-dependency-path: desktop/package-lock.json
 
       - name: Setup Rust
         uses: dtolnay/rust-toolchain@stable
 
-      - name: Install dependencies
-        run: npm install --no-audit --no-fund
+      - name: Install locked dependencies
+        run: npm ci
 
       - name: Generate desktop icons from SVG
         run: npm run prepare:icons
 
-      - name: Test Tauri backend
-        run: cargo test --quiet --manifest-path src-tauri/Cargo.toml --lib
+      - name: Test Tauri backend with lockfile
+        run: cargo test --locked --quiet --manifest-path src-tauri/Cargo.toml --lib
 
-      - name: Check Tauri backend
-        run: cargo check --quiet --manifest-path src-tauri/Cargo.toml
+      - name: Check Tauri backend with lockfile
+        run: cargo check --locked --quiet --manifest-path src-tauri/Cargo.toml
 
   windows-release:
     if: >-
@@ -149,13 +169,19 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: 22
+          cache: npm
+          cache-dependency-path: desktop/package-lock.json
 
       - name: Setup Rust
         uses: dtolnay/rust-toolchain@stable
 
-      - name: Install dependencies
+      - name: Install locked dependencies
         working-directory: desktop
-        run: npm install --no-audit --no-fund
+        run: npm ci
+
+      - name: Verify locked Rust dependency graph
+        working-directory: desktop
+        run: cargo metadata --locked --format-version 1 --manifest-path src-tauri/Cargo.toml > $null
 
       - name: Generate desktop icons from SVG
         working-directory: desktop
@@ -185,6 +211,7 @@ jobs:
             - AI 服务配置与 AI 工作台完全分离，支持多 Provider。
             - 包含可校验备份恢复、部署报告、Skill 专库和双知识库可信发布。
             - API Key 不进入 SQLite、工作区备份、报告或 Git。
+            - 使用已提交的 npm 与 Cargo 锁文件完成可重复构建。
             - 安装包内置 WebView2 离线安装器。
           releaseCommitish: ${{ github.sha }}
           releaseDraft: false
