@@ -1,0 +1,419 @@
+/* v0.4.0 production workspace, Skill registry and knowledge trust workflow */
+.priority-ladder {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 10px;
+  margin: 18px 0;
+}
+
+.priority-ladder.compact {
+  margin-bottom: 18px;
+}
+
+.priority-ladder > div {
+  position: relative;
+  display: flex;
+  min-height: 72px;
+  align-items: center;
+  gap: 11px;
+  padding: 14px;
+  border: 1px solid var(--line-soft);
+  border-radius: 14px;
+  background: var(--surface-2);
+}
+
+.priority-ladder > div:not(:last-child)::after {
+  position: absolute;
+  right: -9px;
+  color: var(--muted-2);
+  content: "›";
+  font-size: 18px;
+  z-index: 1;
+}
+
+.priority-ladder span {
+  display: grid;
+  width: 28px;
+  height: 28px;
+  flex: 0 0 auto;
+  place-items: center;
+  border: 1px solid color-mix(in srgb, var(--accent) 32%, var(--line));
+  border-radius: 9px;
+  color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 9%, transparent);
+  font-size: 11px;
+  font-weight: 800;
+}
+
+.priority-ladder strong {
+  font-size: 11px;
+  line-height: 1.45;
+}
+
+.skills-layout {
+  display: grid;
+  grid-template-columns: minmax(360px, 0.78fr) minmax(520px, 1.22fr);
+  gap: 18px;
+  align-items: start;
+}
+
+.skill-form {
+  margin-bottom: 18px;
+  padding-bottom: 18px;
+  border-bottom: 1px solid var(--line-soft);
+}
+
+.skill-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin: 16px 0 19px;
+}
+
+.skill-list-item {
+  display: flex;
+  width: 100%;
+  min-height: 76px;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 13px 14px;
+  border: 1px solid var(--line-soft);
+  border-radius: 13px;
+  color: var(--text);
+  background: var(--surface-2);
+  text-align: left;
+  transition: border-color 140ms ease, background 140ms ease, transform 140ms ease;
+}
+
+.skill-list-item:hover,
+.skill-list-item.active {
+  border-color: color-mix(in srgb, var(--accent) 38%, var(--line));
+  background: color-mix(in srgb, var(--accent) 6%, var(--surface-2));
+}
+
+.skill-list-item:hover {
+  transform: translateY(-1px);
+}
+
+.skill-list-item strong,
+.skill-list-item span {
+  display: block;
+}
+
+.skill-list-item strong {
+  font-size: 12px;
+}
+
+.skill-list-item span {
+  margin-top: 5px;
+  color: var(--muted);
+  font-family: "Cascadia Code", Consolas, monospace;
+  font-size: 9px;
+}
+
+.skill-detail {
+  margin-top: 18px;
+}
+
+.skill-summary-grid,
+.import-preview {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.skill-summary-grid > div,
+.import-preview > div {
+  min-width: 0;
+  padding: 13px;
+  border: 1px solid var(--line-soft);
+  border-radius: 12px;
+  background: var(--surface-2);
+}
+
+.skill-summary-grid span,
+.import-preview span {
+  display: block;
+  color: var(--muted-2);
+  font-size: 9px;
+  font-weight: 750;
+  letter-spacing: .04em;
+  text-transform: uppercase;
+}
+
+.skill-summary-grid strong,
+.import-preview strong {
+  display: block;
+  overflow: hidden;
+  margin-top: 6px;
+  font-size: 11px;
+  text-overflow: ellipsis;
+}
+
+.skill-detail details {
+  margin-top: 11px;
+  border: 1px solid var(--line-soft);
+  border-radius: 13px;
+  background: var(--surface-2);
+}
+
+.skill-detail summary {
+  padding: 13px 15px;
+  color: var(--text);
+  font-size: 11px;
+  font-weight: 750;
+  cursor: pointer;
+}
+
+.skill-detail details .code-shell {
+  margin: 0 12px 12px;
+}
+
+.verification-form {
+  display: grid;
+  grid-template-columns: minmax(160px, .35fr) minmax(0, 1fr) auto;
+  gap: 12px;
+  align-items: end;
+  margin-top: 16px;
+  padding: 16px;
+  border: 1px solid color-mix(in srgb, var(--success) 30%, var(--line));
+  border-radius: 14px;
+  background: color-mix(in srgb, var(--success) 5%, var(--surface-2));
+}
+
+.verification-form h3,
+.verification-form p {
+  grid-column: 1 / -1;
+  margin: 0;
+}
+
+.verification-form h3 {
+  font-size: 13px;
+}
+
+.verification-form p {
+  color: var(--muted);
+  font-size: 10px;
+  line-height: 1.6;
+}
+
+.verification-form label,
+.backup-copy label,
+.knowledge-review-box label {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 7px;
+  color: var(--muted);
+  font-size: 10px;
+  font-weight: 700;
+}
+
+.knowledge-review-box {
+  display: grid;
+  grid-template-columns: minmax(180px, .35fr) minmax(0, 1fr);
+  gap: 12px;
+  margin: 16px 0 20px;
+  padding: 16px;
+  border: 1px solid color-mix(in srgb, var(--accent) 32%, var(--line));
+  border-radius: 15px;
+  background: color-mix(in srgb, var(--accent) 4%, var(--surface-2));
+}
+
+.knowledge-review-head {
+  display: flex;
+  grid-column: 1 / -1;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.knowledge-review-head span {
+  color: var(--muted-2);
+  font-size: 9px;
+  font-weight: 800;
+  letter-spacing: .12em;
+}
+
+.knowledge-review-head h3 {
+  margin: 5px 0 0;
+  font-size: 14px;
+}
+
+.workspace-health-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.workspace-health-grid .panel {
+  min-height: 154px;
+}
+
+.workspace-health-grid .panel > :not(.panel-header) {
+  margin-top: 14px;
+}
+
+.health-value {
+  margin-top: 14px;
+  color: var(--text);
+  font-size: 32px;
+  font-weight: 830;
+  letter-spacing: -.05em;
+}
+
+.health-value.good {
+  color: var(--success);
+}
+
+.health-value.danger {
+  color: var(--danger);
+}
+
+.workspace-health-grid p {
+  color: var(--muted);
+  font-size: 10px;
+  line-height: 1.6;
+}
+
+.backup-layout {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.backup-copy {
+  display: flex;
+  flex-direction: column;
+  gap: 13px;
+  margin-top: 17px;
+}
+
+.backup-copy h3,
+.backup-copy p {
+  margin: 0;
+}
+
+.backup-copy h3 {
+  font-size: 14px;
+}
+
+.backup-copy p {
+  color: var(--muted);
+  font-size: 10px;
+  line-height: 1.7;
+}
+
+.backup-meta {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  padding: 12px 13px;
+  border: 1px solid var(--line-soft);
+  border-radius: 12px;
+  background: var(--surface-2);
+}
+
+.backup-meta span {
+  color: var(--muted);
+  font-size: 10px;
+}
+
+.backup-meta strong {
+  font-family: "Cascadia Code", Consolas, monospace;
+  font-size: 10px;
+}
+
+.import-preview {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.production-checklist {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 11px;
+  margin: 18px 0;
+}
+
+.production-checklist > div {
+  min-height: 132px;
+  padding: 15px;
+  border: 1px solid var(--line-soft);
+  border-radius: 14px;
+  background: var(--surface-2);
+}
+
+.production-checklist > div.done {
+  border-color: color-mix(in srgb, var(--success) 30%, var(--line));
+}
+
+.production-checklist > div.pending {
+  border-color: color-mix(in srgb, var(--warning) 28%, var(--line));
+}
+
+.production-checklist > div.blocked {
+  border-color: color-mix(in srgb, var(--danger) 32%, var(--line));
+}
+
+.production-checklist span {
+  color: var(--muted-2);
+  font-family: "Cascadia Code", Consolas, monospace;
+  font-size: 9px;
+}
+
+.production-checklist strong {
+  display: block;
+  margin-top: 14px;
+  font-size: 12px;
+}
+
+.production-checklist p {
+  margin: 8px 0 0;
+  color: var(--muted);
+  font-size: 10px;
+  line-height: 1.6;
+}
+
+.settings-link-cards-four {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+@media (max-width: 1280px) {
+  .priority-ladder {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .priority-ladder > div::after {
+    display: none;
+  }
+
+  .skills-layout {
+    grid-template-columns: 1fr;
+  }
+
+  .workspace-health-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 920px) {
+  .priority-ladder,
+  .workspace-health-grid,
+  .production-checklist,
+  .backup-layout,
+  .skill-summary-grid,
+  .import-preview,
+  .settings-link-cards-four {
+    grid-template-columns: 1fr;
+  }
+
+  .verification-form,
+  .knowledge-review-box {
+    grid-template-columns: 1fr;
+  }
+
+  .verification-form > *,
+  .knowledge-review-box > * {
+    grid-column: 1;
+  }
+}

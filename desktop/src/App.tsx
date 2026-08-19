@@ -9,6 +9,8 @@ import { DeploymentPage } from "./pages/DeploymentPage";
 import { DiagnosticsPage } from "./pages/DiagnosticsPage";
 import { KnowledgePage } from "./pages/KnowledgePage";
 import { SettingsPage } from "./pages/SettingsPage";
+import { SkillsPage } from "./pages/SkillsPage";
+import { WorkspacePage } from "./pages/WorkspacePage";
 
 function NotFoundPage() {
   return (
@@ -36,6 +38,8 @@ export default function App() {
           <Route path="ai" element={<AiWorkspacePage />} />
           <Route path="ai-settings" element={<AiProviderSettingsPage />} />
           <Route path="knowledge" element={<KnowledgePage />} />
+          <Route path="skills" element={<SkillsPage />} />
+          <Route path="workspace" element={<WorkspacePage />} />
           <Route path="settings" element={<SettingsPage />} />
           <Route path="*" element={<NotFoundPage />} />
         </Route>

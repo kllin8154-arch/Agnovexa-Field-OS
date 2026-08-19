@@ -62,18 +62,12 @@ export function SettingsPage() {
           <p className="settings-detail">{storage.detail}</p>
         </Panel>
 
-        <Panel eyebrow="AI SERVICES" title="AI 配置与使用已分离">
-          <div className="settings-link-cards">
-            <Link to="/ai-settings">
-              <span>配置</span>
-              <strong>AI 服务配置</strong>
-              <p>管理 Provider、Base URL、模型、启用状态和当前会话 API Key。</p>
-            </Link>
-            <Link to="/ai">
-              <span>使用</span>
-              <strong>AI 工作台</strong>
-              <p>生成部署方案、分析人工报错、审查 SQL 和整理知识草稿。</p>
-            </Link>
+        <Panel eyebrow="WORKSPACE MAP" title="配置、使用与数据治理分区">
+          <div className="settings-link-cards settings-link-cards-four">
+            <Link to="/ai-settings"><span>配置</span><strong>AI 服务配置</strong><p>Provider、Base URL、模型与会话密钥。</p></Link>
+            <Link to="/ai"><span>使用</span><strong>AI 工作台</strong><p>方案、报错分析、SQL 审查与知识草稿。</p></Link>
+            <Link to="/skills"><span>模板</span><strong>Skill 专库</strong><p>结构化前置检查、人工执行、验证与回滚。</p></Link>
+            <Link to="/workspace"><span>数据</span><strong>工作区与备份</strong><p>SQLite 自检、JSON 备份和安全合并恢复。</p></Link>
           </div>
         </Panel>
       </div>
@@ -84,6 +78,7 @@ export function SettingsPage() {
             <li>API Key 只保留在当前应用进程内存，关闭应用后清空。</li>
             <li>Provider 元数据可保存在本机，但不会包含真实密钥。</li>
             <li>发送前自动脱敏内网 IP、连接凭据、Authorization、Token 和私钥块。</li>
+            <li>工作区备份强制声明不包含 API Key 和远程执行能力。</li>
             <li>外部 AI 返回内容只能作为草案，不能自动升级为已验证知识。</li>
           </ul>
         </Panel>
