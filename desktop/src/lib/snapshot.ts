@@ -18,6 +18,25 @@ function unique(values: string[]): string[] {
   return [...new Set(values.filter(Boolean))];
 }
 
+function isValidIpv4(value: string): boolean {
+  const octets = value.split(".").map(Number);
+  return octets.length === 4 && octets.every((octet) => Number.isInteger(octet) && octet >= 0 && octet <= 255);
+}
+
+function isPrivateIpv4(value: string): boolean {
+  if (!isValidIpv4(value)) return false;
+  const [first, second] = value.split(".").map(Number);
+  return first === 10
+    || (first === 192 && second === 168)
+    || (first === 172 && second >= 16 && second <= 31);
+}
+
+function extractPrivateIpv4(text: string): string[] {
+  const candidates = [...text.matchAll(/\b(\d{1,3}(?:\.\d{1,3}){3})(?:\/\d{1,2})?\b/g)]
+    .map((match) => match[1]);
+  return unique(candidates.filter(isPrivateIpv4));
+}
+
 export function parseEnvironmentSnapshot(output: string): ParsedEnvironmentSnapshot {
   const normalized = output.replace(/\r\n/g, "\n");
   const facts: Record<string, string> = {};
@@ -55,10 +74,7 @@ export function parseEnvironmentSnapshot(output: string): ParsedEnvironmentSnaps
   if (python) facts.python = python;
   if (node) facts.node = node;
 
-  const ipv4 = unique(
-    [...normalized.matchAll(/\b((?:10|192\.168|172\.(?:1[6-9]|2\d|3[01]))(?:\.\d{1,3}){3})\/\d{1,2}\b/g)]
-      .map((match) => match[1]),
-  );
+  const ipv4 = extractPrivateIpv4(normalized);
   if (ipv4.length) facts.privateIpv4 = ipv4.join(", ");
 
   const defaultRoute = firstMatch(normalized, [/^default\s+via\s+([^\n]+)/mi]);
@@ -85,9 +101,15 @@ export function parseEnvironmentSnapshot(output: string): ParsedEnvironmentSnaps
   if (!/Mem:/i.test(normalized)) missingFacts.push("内存信息");
 
   const conflictingFacts: string[] = [];
-  if (ipv4.length > 1) conflictingFacts.push(`检测到多个内网 IPv4：${ipv4.join("、")}，需要人工确认主业务地址。`);
-  if (hostname && normalized.includes("127.0.0.1") && new RegExp(`127\\.0\\.0\\.1[^\\n]*\\b${hostname.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\b`, "i").test(normalized)) {
-    conflictingFacts.push("当前业务主机名可能映射到 127.0.0.1，需要核对 /etc/hosts。 ");
+  if (ipv4.length > 1) {
+    conflictingFacts.push(`检测到多个内网 IPv4：${ipv4.join("、")}，需要人工确认主业务地址。`);
+  }
+  if (
+    hostname
+    && normalized.includes("127.0.0.1")
+    && new RegExp(`127\\.0\\.0\\.1[^\\n]*\\b${hostname.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\b`, "i").test(normalized)
+  ) {
+    conflictingFacts.push("当前业务主机名可能映射到 127.0.0.1，需要核对 /etc/hosts。");
   }
 
   const status = conflictingFacts.length > 0
