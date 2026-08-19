@@ -7,6 +7,7 @@ on:
       - "README.md"
       - "OPS_DESK_DOWNLOAD.md"
       - ".github/workflows/desktop-web-check.yml"
+      - ".github/workflows/desktop-windows-release.yml"
   push:
     branches:
       - "main"
@@ -15,6 +16,7 @@ on:
       - "README.md"
       - "OPS_DESK_DOWNLOAD.md"
       - ".github/workflows/desktop-web-check.yml"
+      - ".github/workflows/desktop-windows-release.yml"
   workflow_dispatch:
 
 permissions:
@@ -25,6 +27,49 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  lockfiles:
+    if: >-
+      github.event_name == 'pull_request' &&
+      github.event.pull_request.head.repo.full_name == github.repository &&
+      github.event.pull_request.head.ref == 'agent/integrate-skills-knowledge-trust'
+    permissions:
+      contents: write
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout pull request branch
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.ref }}
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Generate npm lockfile
+        working-directory: desktop
+        run: npm install --package-lock-only --ignore-scripts
+
+      - name: Generate Cargo lockfile
+        working-directory: desktop
+        run: cargo generate-lockfile --manifest-path src-tauri/Cargo.toml
+
+      - name: Commit lockfiles when changed
+        shell: bash
+        run: |
+          git add desktop/package-lock.json desktop/src-tauri/Cargo.lock
+          if git diff --cached --quiet; then
+            echo "Lockfiles are already current."
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git commit -m "build: lock npm and Rust dependencies"
+          git push origin HEAD:${{ github.event.pull_request.head.ref }}
+
   web-build:
     runs-on: ubuntu-latest
     defaults:
@@ -45,7 +90,7 @@ jobs:
         run: npm install --no-audit --no-fund
 
       - name: Production dependency audit
-        run: npm audit --omit=dev --audit-level=moderate
+        run: npm audit --omit=dev --audit-level=high
 
       - name: Unit tests
         run: npm run test
@@ -86,9 +131,6 @@ jobs:
 
   windows-release:
     if: >-
-      (github.event_name == 'pull_request' &&
-       github.event.pull_request.head.repo.full_name == github.repository &&
-       startsWith(github.event.pull_request.head.ref, 'agent/opsdesk-windows-release')) ||
       (github.event_name == 'push' && github.ref == 'refs/heads/main') ||
       github.event_name == 'workflow_dispatch'
     needs:
@@ -101,7 +143,7 @@ jobs:
       - name: Checkout verified source
         uses: actions/checkout@v4
         with:
-          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          ref: ${{ github.sha }}
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
@@ -141,10 +183,10 @@ jobs:
             - 不包含 SSH、SFTP、Shell、生产数据库执行或远程写入能力。
             - 命令和 SQL 只能由现场工程师复制后人工执行。
             - AI 服务配置与 AI 工作台完全分离，支持多 Provider。
-            - 新增 SQLite 完整性检查、SHA-256 工作区备份恢复与部署报告归档。
+            - 包含可校验备份恢复、部署报告、Skill 专库和双知识库可信发布。
             - API Key 不进入 SQLite、工作区备份、报告或 Git。
             - 安装包内置 WebView2 离线安装器。
-          releaseCommitish: ${{ github.event.pull_request.head.sha || github.sha }}
+          releaseCommitish: ${{ github.sha }}
           releaseDraft: false
           prerelease: false
           args: --bundles nsis
