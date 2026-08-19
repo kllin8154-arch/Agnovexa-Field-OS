@@ -43,9 +43,9 @@ export interface WorkspaceBackup {
 }
 
 export function createEmptyWorkspaceTables(): WorkspaceBackupTables {
-  return Object.fromEntries(
-    WORKSPACE_BACKUP_TABLES.map((name) => [name, []]),
-  ) as WorkspaceBackupTables;
+  const tables = {} as WorkspaceBackupTables;
+  for (const tableName of WORKSPACE_BACKUP_TABLES) tables[tableName] = [];
+  return tables;
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -131,6 +131,7 @@ export function parseWorkspaceBackup(raw: string): WorkspaceBackup {
   }
 
   const manifest = parsed.manifest;
+  const rawTables = parsed.tables;
   if (manifest.format !== WORKSPACE_BACKUP_FORMAT) throw new Error("不是 Agnovexa OpsDesk 工作区备份。");
   if (manifest.schemaVersion !== WORKSPACE_BACKUP_SCHEMA_VERSION) {
     throw new Error(`不支持的备份结构版本：${String(manifest.schemaVersion)}`);
@@ -147,8 +148,9 @@ export function parseWorkspaceBackup(raw: string): WorkspaceBackup {
   }
   if (!Array.isArray(manifest.excludedSecrets)) throw new Error("备份缺少敏感信息排除声明。");
   if (!isRecord(manifest.tableCounts)) throw new Error("备份缺少表计数信息。");
+  const rawTableCounts = manifest.tableCounts;
 
-  const unknownTables = Object.keys(parsed.tables).filter(
+  const unknownTables = Object.keys(rawTables).filter(
     (name) => !WORKSPACE_BACKUP_TABLES.includes(name as WorkspaceBackupTableName),
   );
   if (unknownTables.length > 0) {
@@ -157,14 +159,22 @@ export function parseWorkspaceBackup(raw: string): WorkspaceBackup {
 
   const tables = createEmptyWorkspaceTables();
   for (const tableName of WORKSPACE_BACKUP_TABLES) {
-    const rawRows = parsed.tables[tableName];
+    const rawRows = rawTables[tableName];
     if (!Array.isArray(rawRows)) throw new Error(`备份缺少数据表：${tableName}`);
     if (rawRows.length > 500_000) throw new Error(`${tableName} 行数异常，已拒绝载入。`);
     tables[tableName] = rawRows.map((row, index) => validateRow(tableName, row, index));
-    const declared = manifest.tableCounts[tableName];
+    const declared = rawTableCounts[tableName];
+    if (typeof declared !== "number" || !Number.isInteger(declared) || declared < 0) {
+      throw new Error(`${tableName} 的 manifest 行数无效。`);
+    }
     if (declared !== rawRows.length) {
       throw new Error(`${tableName} 行数与 manifest 不一致。`);
     }
+  }
+
+  const tableCounts = {} as Record<WorkspaceBackupTableName, number>;
+  for (const tableName of WORKSPACE_BACKUP_TABLES) {
+    tableCounts[tableName] = Number(rawTableCounts[tableName]);
   }
 
   return {
@@ -177,9 +187,7 @@ export function parseWorkspaceBackup(raw: string): WorkspaceBackup {
       containsApiKeys: false,
       remoteExecution: false,
       excludedSecrets: manifest.excludedSecrets.filter((item): item is string => typeof item === "string"),
-      tableCounts: Object.fromEntries(
-        WORKSPACE_BACKUP_TABLES.map((name) => [name, Number(manifest.tableCounts[name])]),
-      ) as Record<WorkspaceBackupTableName, number>,
+      tableCounts,
       payloadSha256: manifest.payloadSha256.toLowerCase(),
     },
     tables,
