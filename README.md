@@ -2,7 +2,7 @@
 
 Agnovexa OpsDesk 是面向离线现场部署、运维排障、人工变更审计和知识沉淀的 Windows 桌面工作台。
 
-[下载最新版 Windows x64 安装程序](https://github.com/kllin8154-arch/Agnovexa-Field-OS/releases/latest/download/Agnovexa-OpsDesk-Windows-x64-Setup.exe)
+[**下载最新版 Windows x64 安装程序**](https://github.com/kllin8154-arch/Agnovexa-Field-OS/releases/latest/download/Agnovexa-OpsDesk-Windows-x64-Setup.exe)
 
 ## 核心边界
 
@@ -18,18 +18,38 @@ Agnovexa OpsDesk 是面向离线现场部署、运维排障、人工变更审计
 
 程序永久不注册 SSH、SFTP、Shell、远程文件、进程启动或生产数据库执行工具。AI 只能分析文字上下文和生成待审核草案。
 
-## v0.3.0 生产候选版
+## v0.4.0 生产候选版
+
+### 现场部署闭环
 
 - 项目与服务器资产台账写入本地 SQLite；资产地址只用于台账，不会自动连接。
 - 只读环境采集包由工程师人工执行，输出经过脱敏、解析并保存为版本化快照。
 - 部署任务、命令包、SQL 包、配置变更包、人工审批和执行证据形成闭环。
-- 退出码非 0 时保留在人工执行阶段，可将脱敏后的错误上下文交给 AI 继续分析。
-- 双知识库：KB-Inner 内部知识优先，KB-Public 外部资料默认待审核。
+- 退出码非 0 时保留在 `MANUAL_EXECUTE`，可将脱敏后的错误上下文交给 AI 继续分析。
+- 部署完成必须分别验证文件/包、服务/进程、网络/端口和业务功能。
+
+### AI 与知识
+
 - AI 配置与 AI 使用完全分离：`AI 服务配置` 管 Provider，`AI 工作台` 处理任务。
 - 支持 DeepSeek、OpenAI、通义千问、Kimi、智谱 GLM、硅基流动、本地和自定义 OpenAI 兼容接口。
-- API Key 只存在于当前应用进程内存，不写入 SQLite、localStorage、知识库、报告或 Git。
-- 明亮、深色、跟随系统三套主题已经重新设计。
-- Windows NSIS 安装程序由 GitHub Actions 测试、构建并发布。
+- API Key 只存在于当前应用进程内存，不写入 SQLite、localStorage、知识库、报告、备份或 Git。
+- 双知识库：KB-Inner 内部知识优先，KB-Public 外部资料默认待审核。
+- 外部资料和 AI 结果不能直接成为 `verified`，必须先完成现场验证与人工审核。
+
+### 数据与归档
+
+- 新增 `数据与归档` 工作区。
+- 执行 SQLite `integrity_check` 与 `foreign_key_check`，显示受控数据表数量。
+- 导出 `.opsdesk.json` 工作区备份和独立 SHA-256 校验文件。
+- 恢复前强制校验格式、安全声明、表计数和数据摘要；恢复必须二次人工确认。
+- 备份明确排除 AI API Key、凭据库秘密和未脱敏生产密码。
+- 从任务、变更计划、审批与人工执行证据生成 Markdown 部署报告，并保存为本地 draft 生成物。
+
+### 界面与发布
+
+- 明亮、深色、跟随系统三套主题已经重做。
+- 工作台、侧边栏、顶部栏、表单、状态卡、代码块、AI 工作区和响应式布局均按桌面生产场景设计。
+- Windows NSIS 安装程序由 GitHub Actions 完成测试、生产依赖审计、构建和 Release 发布。
 
 ## 目录
 
@@ -67,9 +87,10 @@ desktop/src-tauri/target/release/bundle/nsis/
 
 1. 当前安装包未使用商业代码签名证书，Windows SmartScreen 可能提示未知发布者。
 2. API 请求只在用户点击测试或生成按钮时发出；发送前仍需人工检查脱敏预览。
-3. 外部资料和 AI 结果不能直接升级为 `verified`，必须先经过现场验证和人工审核。
-4. SQLite 数据库保存在当前 Windows 用户的应用数据目录；正式项目投入前应建立工作区备份制度。
+3. 工作区恢复会覆盖当前本地项目、资产、任务、知识和审计数据，必须先导出当前备份。
+4. SQLite 数据库保存在当前 Windows 用户的应用数据目录，应建立定期备份、异地保存和恢复演练制度。
 5. 高风险命令和 SQL 只能作为待人工执行文本保存，程序不会代为执行。
+6. 生成的部署报告默认为 draft，必须经实施人员和项目负责人复核后归档。
 
 ## 许可证
 

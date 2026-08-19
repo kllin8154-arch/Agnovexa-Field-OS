@@ -2,6 +2,7 @@ import { HashRouter, Link, Route, Routes } from "react-router-dom";
 import { AppShell } from "./components/AppShell";
 import { AiProviderSettingsPage } from "./pages/AiProviderSettingsPage";
 import { AiWorkspacePage } from "./pages/AiWorkspacePage";
+import { ArchivePage } from "./pages/ArchivePage";
 import { AssetsPage } from "./pages/AssetsPage";
 import { ChangesPage } from "./pages/ChangesPage";
 import { DashboardPage } from "./pages/DashboardPage";
@@ -36,6 +37,7 @@ export default function App() {
           <Route path="ai" element={<AiWorkspacePage />} />
           <Route path="ai-settings" element={<AiProviderSettingsPage />} />
           <Route path="knowledge" element={<KnowledgePage />} />
+          <Route path="archive" element={<ArchivePage />} />
           <Route path="settings" element={<SettingsPage />} />
           <Route path="*" element={<NotFoundPage />} />
         </Route>

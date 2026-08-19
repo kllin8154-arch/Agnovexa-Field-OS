@@ -24,25 +24,15 @@ export function SettingsPage() {
       <Panel eyebrow="APPEARANCE" title="外观与主题">
         <div className="theme-choice-grid">
           {THEME_OPTIONS.map((option) => (
-            <button
-              key={option.value}
-              type="button"
-              className={`theme-choice-card${mode === option.value ? " active" : ""}`}
-              onClick={() => setMode(option.value)}
-            >
-              <div className={`theme-preview theme-preview-${option.value}`}>
-                <span />
-                <div><i /><i /><i /></div>
-              </div>
+            <button key={option.value} type="button" className={`theme-choice-card${mode === option.value ? " active" : ""}`} onClick={() => setMode(option.value)}>
+              <div className={`theme-preview theme-preview-${option.value}`}><span /><div><i /><i /><i /></div></div>
               <strong>{option.label}</strong>
               <span>{option.description}</span>
               {mode === option.value && <small>当前选择</small>}
             </button>
           ))}
         </div>
-        <div className="settings-inline-note">
-          当前实际主题：<strong>{resolvedTheme === "dark" ? "深色" : "明亮"}</strong>。主题设置仅保存在本机，不影响项目数据。
-        </div>
+        <div className="settings-inline-note">当前实际主题：<strong>{resolvedTheme === "dark" ? "深色" : "明亮"}</strong>。主题设置仅保存在本机，不影响项目数据。</div>
       </Panel>
 
       <Notice tone="success" title="不可绕过的人工执行边界">
@@ -62,18 +52,11 @@ export function SettingsPage() {
           <p className="settings-detail">{storage.detail}</p>
         </Panel>
 
-        <Panel eyebrow="AI SERVICES" title="AI 配置与使用已分离">
-          <div className="settings-link-cards">
-            <Link to="/ai-settings">
-              <span>配置</span>
-              <strong>AI 服务配置</strong>
-              <p>管理 Provider、Base URL、模型、启用状态和当前会话 API Key。</p>
-            </Link>
-            <Link to="/ai">
-              <span>使用</span>
-              <strong>AI 工作台</strong>
-              <p>生成部署方案、分析人工报错、审查 SQL 和整理知识草稿。</p>
-            </Link>
+        <Panel eyebrow="WORKSPACE ENTRY" title="配置、使用与归档分离">
+          <div className="settings-link-cards settings-link-cards-three">
+            <Link to="/ai-settings"><span>配置</span><strong>AI 服务配置</strong><p>管理 Provider、Base URL、模型、启用状态和当前会话 API Key。</p></Link>
+            <Link to="/ai"><span>使用</span><strong>AI 工作台</strong><p>生成部署方案、分析人工报错、审查 SQL 和整理知识草稿。</p></Link>
+            <Link to="/archive"><span>归档</span><strong>数据与归档</strong><p>执行 SQLite 完整性检查、工作区备份恢复和部署报告导出。</p></Link>
           </div>
         </Panel>
       </div>
@@ -85,6 +68,7 @@ export function SettingsPage() {
             <li>Provider 元数据可保存在本机，但不会包含真实密钥。</li>
             <li>发送前自动脱敏内网 IP、连接凭据、Authorization、Token 和私钥块。</li>
             <li>外部 AI 返回内容只能作为草案，不能自动升级为已验证知识。</li>
+            <li>工作区备份排除 API Key、凭据库秘密和未脱敏生产密码。</li>
           </ul>
         </Panel>
 
@@ -94,6 +78,8 @@ export function SettingsPage() {
             <div className="ready"><span>人工执行门禁</span><strong>已启用</strong></div>
             <div className="ready"><span>远程执行能力</span><strong>不存在</strong></div>
             <div className="ready"><span>AI 显式调用</span><strong>已启用</strong></div>
+            <div className="ready"><span>备份摘要校验</span><strong>SHA-256</strong></div>
+            <div className="ready"><span>部署报告</span><strong>本地生成</strong></div>
           </div>
         </Panel>
       </div>

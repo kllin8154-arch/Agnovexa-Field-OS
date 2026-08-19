@@ -1,7 +1,7 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
   "productName": "Agnovexa OpsDesk",
-  "version": "0.3.0",
+  "version": "0.4.0",
   "identifier": "com.kllin.agnovexa.opsdesk",
   "build": {
     "beforeDevCommand": "npm run dev",

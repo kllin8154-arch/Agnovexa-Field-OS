@@ -12,15 +12,17 @@
 - AI 工作台：生成方案、分析人工报错、SQL 审查和知识草稿。
 - AI 服务配置：独立管理 Provider、模型、Base URL 与会话密钥。
 - 双知识库：内部知识与外部资料隔离。
+- 数据与归档：SQLite 完整性检查、SHA-256 备份恢复、部署报告与本地生成物。
 - 偏好与安全：明亮/深色/系统主题、SQLite 与运行策略检查。
 
 ## 安全边界
 
 - 没有 SSH、SFTP、Shell、远程文件、远程进程或生产数据库执行能力。
-- API Key 仅保留在进程内存。
+- API Key 仅保留在进程内存，不进入工作区备份。
 - 命令、SQL、Diff、验证和回滚只能复制后由工程师人工执行。
 - 非零退出码不会进入验证成功状态。
 - AI 和外部资料只能产生待审核草案。
+- 备份排除 credential references、凭据库秘密和未脱敏生产密码。
 
 ## 开发与检查
 
@@ -31,9 +33,15 @@ npm run build
 npm run tauri:dev
 ```
 
+构建 Windows NSIS：
+
+```bash
+npm run tauri:build:windows
+```
+
 ## Windows Release
 
-主分支通过 CI 后自动构建 NSIS 安装程序并发布到 GitHub Releases：
+主分支通过 CI 后自动构建 NSIS 安装程序并发布到 GitHub Release。固定下载地址：
 
 ```text
 https://github.com/kllin8154-arch/Agnovexa-Field-OS/releases/latest/download/Agnovexa-OpsDesk-Windows-x64-Setup.exe
