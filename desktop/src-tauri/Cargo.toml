@@ -1,6 +1,6 @@
 [package]
 name = "agnovexa-opsdesk"
-version = "0.2.0"
+version = "0.3.0"
 description = "Offline-first, human-controlled field deployment workbench"
 authors = ["Agnovexa"]
 edition = "2021"

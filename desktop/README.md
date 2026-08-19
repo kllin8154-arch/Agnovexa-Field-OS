@@ -1,62 +1,40 @@
 # Agnovexa OpsDesk Desktop
 
-本目录是 Agnovexa OpsDesk 的 Windows 桌面端源码，采用 **Tauri 2 + React 19 + TypeScript + Vite + Rust + SQLite**。
+技术栈：Tauri 2、React 19、TypeScript、Vite、Rust、SQLite。
 
-## 最新 Windows 安装包
+## 页面结构
 
-[**下载 Agnovexa OpsDesk Windows x64 EXE**](https://github.com/kllin8154-arch/Agnovexa-Field-OS/releases/latest/download/Agnovexa-OpsDesk-Windows-x64-Setup.exe)
+- 工作台：读取真实本地项目、资产、任务与知识统计。
+- 服务器资产：创建项目、登记资产、查看快照状态。
+- 现场诊断：生成只读采集包，人工执行并保存脱敏环境快照。
+- 部署中心：基于离线模板创建部署任务。
+- 变更中心：创建命令/SQL/配置包，人工审批、人工执行、回填证据。
+- AI 工作台：生成方案、分析人工报错、SQL 审查和知识草稿。
+- AI 服务配置：独立管理 Provider、模型、Base URL 与会话密钥。
+- 双知识库：内部知识与外部资料隔离。
+- 偏好与安全：明亮/深色/系统主题、SQLite 与运行策略检查。
 
-[打开最新 Release](https://github.com/kllin8154-arch/Agnovexa-Field-OS/releases/latest)
+## 安全边界
 
-## 永久执行边界
+- 没有 SSH、SFTP、Shell、远程文件、远程进程或生产数据库执行能力。
+- API Key 仅保留在进程内存。
+- 命令、SQL、Diff、验证和回滚只能复制后由工程师人工执行。
+- 非零退出码不会进入验证成功状态。
+- AI 和外部资料只能产生待审核草案。
 
-- 不接入 SSH、SFTP、Shell、远程进程或生产数据库直连；
-- 命令、SQL、配置 Diff、验证和回滚只作为可复制文本；
-- 现场工程师人工审阅、人工执行并回填退出码、stdout、stderr 和现场说明；
-- 非零退出码不能进入验证通过；
-- AI 只能生成草案、分析报错和给出下一轮建议，不能执行操作。
+## 开发与检查
 
-## AI Provider
-
-支持 DeepSeek、OpenAI、通义千问、Kimi、智谱 GLM、硅基流动、本地服务以及自定义 OpenAI-compatible 接口。API Key 按运行时临时输入设计，不进入 Git、报告和普通业务数据。
-
-## 本地开发
-
-```powershell
+```bash
 npm install
-npm run prepare:icons
 npm run test
 npm run build
 npm run tauri:dev
 ```
 
-构建 Windows NSIS 安装包：
+## Windows Release
 
-```powershell
-npm run tauri:build:windows
-```
-
-输出目录：
+主分支通过 CI 后自动构建 NSIS 安装程序并发布到 GitHub Releases：
 
 ```text
-src-tauri/target/release/bundle/nsis/
-```
-
-## 页面
-
-- 工作台；
-- 服务器资产；
-- 现场诊断；
-- 部署中心；
-- 变更与人工执行证据；
-- 多 Provider AI 助手；
-- 双知识库；
-- 安全与运行设置。
-
-## 发布
-
-主分支通过 `.github/workflows/desktop-web-check.yml` 完成测试、Windows Tauri 检查、NSIS 构建和 GitHub Release 发布。Release 中的固定资产名为：
-
-```text
-Agnovexa-OpsDesk-Windows-x64-Setup.exe
+https://github.com/kllin8154-arch/Agnovexa-Field-OS/releases/latest/download/Agnovexa-OpsDesk-Windows-x64-Setup.exe
 ```
