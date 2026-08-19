@@ -57,6 +57,37 @@ jobs:
       - name: Type-check and web build
         run: npm run build
 
+      - name: Render light and dark UI smoke screenshots
+        shell: bash
+        run: |
+          set -euo pipefail
+          BROWSER="$(command -v google-chrome-stable || command -v google-chrome || command -v chromium || command -v chromium-browser || true)"
+          test -n "$BROWSER"
+          rm -rf visual-qa /tmp/opsdesk-chrome-light /tmp/opsdesk-chrome-dark
+          mkdir -p visual-qa
+          python3 -m http.server 4173 --directory dist >visual-qa/static-server.log 2>&1 &
+          SERVER_PID=$!
+          trap 'kill "$SERVER_PID" 2>/dev/null || true' EXIT
+          for _ in $(seq 1 30); do
+            if curl -fsS http://127.0.0.1:4173/ >/dev/null; then break; fi
+            sleep 1
+          done
+          curl -fsS http://127.0.0.1:4173/ >/dev/null
+
+          COMMON=(--headless --no-sandbox --disable-gpu --hide-scrollbars --run-all-compositor-stages-before-draw --virtual-time-budget=2500 --window-size=1440,900)
+          "$BROWSER" "${COMMON[@]}" --user-data-dir=/tmp/opsdesk-chrome-light --screenshot=visual-qa/dashboard-light.png http://127.0.0.1:4173/#/
+          "$BROWSER" "${COMMON[@]}" --user-data-dir=/tmp/opsdesk-chrome-light --screenshot=visual-qa/ai-settings-light.png http://127.0.0.1:4173/#/ai-settings
+          "$BROWSER" "${COMMON[@]}" --user-data-dir=/tmp/opsdesk-chrome-dark --force-dark-mode --screenshot=visual-qa/dashboard-dark.png http://127.0.0.1:4173/#/
+          "$BROWSER" "${COMMON[@]}" --user-data-dir=/tmp/opsdesk-chrome-dark --force-dark-mode --screenshot=visual-qa/skills-dark.png http://127.0.0.1:4173/#/skills
+          "$BROWSER" "${COMMON[@]}" --user-data-dir=/tmp/opsdesk-chrome-dark --force-dark-mode --screenshot=visual-qa/workspace-dark.png http://127.0.0.1:4173/#/workspace
+
+          test -s visual-qa/dashboard-light.png
+          test -s visual-qa/ai-settings-light.png
+          test -s visual-qa/dashboard-dark.png
+          test -s visual-qa/skills-dark.png
+          test -s visual-qa/workspace-dark.png
+          file visual-qa/*.png
+
       - name: Upload built web UI for visual QA
         uses: actions/upload-artifact@v4
         with:
@@ -64,6 +95,14 @@ jobs:
           path: desktop/dist
           if-no-files-found: error
           retention-days: 7
+
+      - name: Upload visual smoke screenshots
+        uses: actions/upload-artifact@v4
+        with:
+          name: opsdesk-visual-qa
+          path: desktop/visual-qa
+          if-no-files-found: error
+          retention-days: 14
 
   tauri-check:
     runs-on: windows-latest
