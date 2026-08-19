@@ -7,6 +7,7 @@ import type { RuntimePolicy } from "../types";
 
 type IconName =
   | "dashboard"
+  | "projects"
   | "assets"
   | "diagnostics"
   | "deploy"
@@ -20,6 +21,7 @@ type IconName =
   | "sun"
   | "moon"
   | "system"
+  | "palette"
   | "plus";
 
 function Icon({ name, ...props }: SVGProps<SVGSVGElement> & { name: IconName }) {
@@ -37,6 +39,7 @@ function Icon({ name, ...props }: SVGProps<SVGSVGElement> & { name: IconName }) 
 
   const paths: Record<IconName, ReactNode> = {
     dashboard: <><rect x="3" y="3" width="7" height="7" rx="2" /><rect x="14" y="3" width="7" height="7" rx="2" /><rect x="3" y="14" width="7" height="7" rx="2" /><rect x="14" y="14" width="7" height="7" rx="2" /></>,
+    projects: <><path d="M3 6h7l2 2h9v11H3z" /><path d="M3 9h18" /></>,
     assets: <><path d="M4 7.5 12 3l8 4.5v9L12 21l-8-4.5z" /><path d="m4 7.5 8 4.5 8-4.5M12 12v9" /></>,
     diagnostics: <><path d="M4 5h16v11H4z" /><path d="m7 9 2 2 3-4M8 20h8M12 16v4" /></>,
     deploy: <><path d="M12 3v12" /><path d="m7 8 5-5 5 5" /><path d="M5 13v7h14v-7" /></>,
@@ -50,6 +53,7 @@ function Icon({ name, ...props }: SVGProps<SVGSVGElement> & { name: IconName }) 
     sun: <><circle cx="12" cy="12" r="4" /><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4" /></>,
     moon: <path d="M20 15.2A8 8 0 0 1 8.8 4 8 8 0 1 0 20 15.2Z" />,
     system: <><rect x="3" y="4" width="18" height="13" rx="2" /><path d="M8 21h8M12 17v4" /></>,
+    palette: <><path d="M12 3a9 9 0 0 0 0 18h1.4a1.6 1.6 0 0 0 1.1-2.7 1.6 1.6 0 0 1 1.1-2.7H18A3 3 0 0 0 21 12a9 9 0 0 0-9-9Z" /><circle cx="7.5" cy="10" r=".7" fill="currentColor" stroke="none" /><circle cx="10" cy="6.5" r=".7" fill="currentColor" stroke="none" /><circle cx="15" cy="7.5" r=".7" fill="currentColor" stroke="none" /></>,
     plus: <path d="M12 5v14M5 12h14" />,
   };
 
@@ -61,6 +65,7 @@ const navGroups = [
     label: "现场运维",
     items: [
       { to: "/", label: "工作台", icon: "dashboard" as const },
+      { to: "/projects", label: "项目中心", icon: "projects" as const },
       { to: "/assets", label: "服务器资产", icon: "assets" as const },
       { to: "/diagnostics", label: "现场诊断", icon: "diagnostics" as const },
       { to: "/deployments", label: "部署中心", icon: "deploy" as const },
@@ -87,6 +92,7 @@ const navGroups = [
 
 const pageTitles: Record<string, { title: string; subtitle: string }> = {
   "/": { title: "现场工作台", subtitle: "事实、计划、人工执行、验证与知识沉淀" },
+  "/projects": { title: "项目中心", subtitle: "统一维护项目范围、系统架构、技术栈与现场约束" },
   "/assets": { title: "服务器资产", subtitle: "维护项目、环境事实与版本化快照" },
   "/diagnostics": { title: "现场诊断", subtitle: "生成只读采集包，人工执行并回传证据" },
   "/deployments": { title: "部署中心", subtitle: "离线模板、前置检查、验收与回滚" },
@@ -108,7 +114,7 @@ const themeButtons: Array<{ mode: ThemeMode; icon: IconName; label: string }> = 
 export function AppShell() {
   const location = useLocation();
   const current = pageTitles[location.pathname] ?? pageTitles["/"];
-  const { mode, setMode } = useTheme();
+  const { mode, setMode, customTheme } = useTheme();
   const [collapsed, setCollapsed] = useState(
     () => window.localStorage.getItem("agnovexa.opsdesk.sidebar.collapsed") === "1",
   );
@@ -140,7 +146,7 @@ export function AppShell() {
     <div className={`app-frame${collapsed ? " sidebar-collapsed" : ""}`}>
       <aside className="sidebar">
         <div className="brand-row">
-          <Link className="brand" to="/" aria-label="返回工作台">
+          <Link className="brand" to="/" aria-label="AX Agnovexa OPSDESK，返回工作台">
             <div className="brand-symbol">AX</div>
             <div className="brand-copy">
               <strong>Agnovexa</strong>
@@ -160,7 +166,7 @@ export function AppShell() {
             <div className="nav-group" key={group.label}>
               <div className="nav-group-label">{group.label}</div>
               {group.items.map((item) => (
-                <NavLink key={item.to} to={item.to} end={item.to === "/"} className={({ isActive }) => `nav-item${isActive ? " active" : ""}`} title={collapsed ? item.label : undefined}>
+                <NavLink key={item.to} to={item.to} end={item.to === "/"} className={({ isActive }) => `nav-item${isActive ? " active" : ""}`} title={item.label} aria-label={item.label}>
                   <span className="nav-icon"><Icon name={item.icon} /></span>
                   <span className="nav-label">{item.label}</span>
                 </NavLink>
@@ -186,7 +192,7 @@ export function AppShell() {
 
           <div className="topbar-actions">
             <div className="theme-switch" aria-label="主题切换">
-              {themeButtons.map((item) => (
+              {[...themeButtons, ...(customTheme ? [{ mode: "custom" as const, icon: "palette" as const, label: customTheme.name }] : [])].map((item) => (
                 <button key={item.mode} type="button" className={mode === item.mode ? "active" : ""} onClick={() => setMode(item.mode)} title={item.label} aria-label={item.label}><Icon name={item.icon} /></button>
               ))}
             </div>
@@ -196,7 +202,7 @@ export function AppShell() {
               <div><small>数据模式</small><strong>{modeLabel}</strong></div>
             </div>
 
-            <Link className="primary-button topbar-primary" to="/deployments"><Icon name="plus" /><span>新建任务</span></Link>
+            <Link className="primary-button topbar-primary" to="/deployments" aria-label="新建任务"><Icon name="plus" /><span>新建任务</span></Link>
           </div>
         </header>
 

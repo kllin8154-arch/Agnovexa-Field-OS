@@ -9,6 +9,7 @@ import { DashboardPage } from "./pages/DashboardPage";
 import { DeploymentPage } from "./pages/DeploymentPage";
 import { DiagnosticsPage } from "./pages/DiagnosticsPage";
 import { KnowledgePage } from "./pages/KnowledgePage";
+import { ProjectsPage } from "./pages/ProjectsPage";
 import { SettingsPage } from "./pages/SettingsPage";
 import { SkillsPage } from "./pages/SkillsPage";
 
@@ -31,6 +32,7 @@ export default function App() {
       <Routes>
         <Route element={<AppShell />}>
           <Route index element={<DashboardPage />} />
+          <Route path="projects" element={<ProjectsPage />} />
           <Route path="assets" element={<AssetsPage />} />
           <Route path="diagnostics" element={<DiagnosticsPage />} />
           <Route path="deployments" element={<DeploymentPage />} />

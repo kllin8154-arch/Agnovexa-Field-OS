@@ -32,7 +32,7 @@ interface BackupTableConfig {
 
 const BACKUP_TABLE_CONFIGS: Record<WorkspaceBackupTableName, BackupTableConfig> = {
   projects: {
-    columns: ["id", "name", "code", "description", "status", "created_at", "updated_at"],
+    columns: ["id", "name", "code", "description", "status", "profile_json", "technologies_json", "created_at", "updated_at"],
     orderBy: "created_at, id",
   },
   assets: {
@@ -248,6 +248,13 @@ function insertStatement(tableName: WorkspaceBackupTableName): string {
   return `INSERT INTO ${tableName} (${columns.join(", ")}) VALUES (${placeholders})`;
 }
 
+function restoreValue(tableName: WorkspaceBackupTableName, column: string, row: WorkspaceBackupRow) {
+  if (row[column] !== undefined && row[column] !== null) return row[column];
+  if (tableName === "projects" && column === "profile_json") return "{}";
+  if (tableName === "projects" && column === "technologies_json") return "[]";
+  return null;
+}
+
 export async function restoreWorkspaceBackup(backup: WorkspaceBackup, restoredBy: string): Promise<void> {
   const actor = restoredBy.trim();
   if (actor.length < 2) throw new Error("请填写恢复操作人。");
@@ -264,7 +271,7 @@ export async function restoreWorkspaceBackup(backup: WorkspaceBackup, restoredBy
       const config = BACKUP_TABLE_CONFIGS[tableName];
       const sql = insertStatement(tableName);
       for (const row of backup.tables[tableName]) {
-        const values = config.columns.map((column) => row[column] ?? null);
+        const values = config.columns.map((column) => restoreValue(tableName, column, row));
         await db.execute(sql, values);
       }
     }

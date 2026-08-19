@@ -54,6 +54,7 @@ export interface AiChatResponse {
 export interface OpsPromptInput {
   mode: AiTaskMode;
   task: string;
+  projectContext?: string;
   commandOrSql?: string;
   exitCode?: string;
   executionOutput?: string;
@@ -238,6 +239,7 @@ export function prepareOpsPrompt(input: OpsPromptInput): PreparedPrompt {
 
   const raw = [
     `任务模式：${modeTitle[input.mode]}`,
+    input.projectContext?.trim() ? `已选择项目上下文：\n${input.projectContext.trim()}` : "",
     `用户任务：\n${input.task.trim() || "<未填写>"}`,
     input.environment?.trim() ? `目标环境事实：\n${input.environment.trim()}` : "",
     input.commandOrSql?.trim() ? `人工准备或实际执行的命令/SQL：\n${input.commandOrSql.trim()}` : "",

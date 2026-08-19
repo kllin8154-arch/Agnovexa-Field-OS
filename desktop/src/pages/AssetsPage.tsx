@@ -1,8 +1,8 @@
 import { useEffect, useMemo, useState } from "react";
+import { Link } from "react-router-dom";
 import { Notice, Panel, Tag } from "../components/Ui";
 import {
   createAsset,
-  createProject,
   deleteAsset,
   isDesktopRuntime,
   listAssets,
@@ -36,10 +36,7 @@ export function AssetsPage() {
   const [projects, setProjects] = useState<ProjectRecord[]>([]);
   const [assets, setAssets] = useState<AssetRecord[]>([]);
   const [query, setQuery] = useState("");
-  const [showProjectForm, setShowProjectForm] = useState(false);
   const [showAssetForm, setShowAssetForm] = useState(false);
-  const [projectName, setProjectName] = useState("");
-  const [projectCode, setProjectCode] = useState("");
   const [assetForm, setAssetForm] = useState(EMPTY_ASSET_FORM);
   const [status, setStatus] = useState<{ tone: "success" | "danger" | "info"; title: string; message: string } | null>(null);
   const [loading, setLoading] = useState(isDesktopRuntime());
@@ -73,20 +70,6 @@ export function AssetsPage() {
         .includes(keyword),
     );
   }, [assets, query]);
-
-  const submitProject = async () => {
-    try {
-      const project = await createProject({ name: projectName, code: projectCode });
-      setProjects((current) => [project, ...current]);
-      setAssetForm((current) => ({ ...current, projectId: project.id }));
-      setProjectName("");
-      setProjectCode("");
-      setShowProjectForm(false);
-      setStatus({ tone: "success", title: "项目已创建", message: `项目“${project.name}”已写入本地 SQLite。` });
-    } catch (error) {
-      setStatus({ tone: "danger", title: "项目创建失败", message: error instanceof Error ? error.message : String(error) });
-    }
-  };
 
   const submitAsset = async () => {
     try {
@@ -126,23 +109,15 @@ export function AssetsPage() {
 
       <Panel
         eyebrow="WORKSPACE REGISTER"
-        title="项目与资产台账"
+        title="服务器资产台账"
         actions={
           <div className="inline-actions">
-            <input className="search-input" value={query} onChange={(event) => setQuery(event.target.value)} placeholder="搜索项目、主机、系统或标签" />
-            <button className="secondary-button" type="button" disabled={!isDesktopRuntime()} onClick={() => setShowProjectForm((value) => !value)}>新建项目</button>
+            <input className="search-input" name="assetSearch" aria-label="搜索服务器资产" value={query} onChange={(event) => setQuery(event.target.value)} placeholder="搜索项目、主机、系统或标签" />
+            <Link className="secondary-button" to="/projects">项目中心</Link>
             <button className="primary-button" type="button" disabled={!isDesktopRuntime() || projects.length === 0} onClick={() => setShowAssetForm((value) => !value)}>登记资产</button>
           </div>
         }
       >
-        {showProjectForm && (
-          <div className="inline-editor">
-            <div><span>项目名称</span><input className="text-input" value={projectName} onChange={(event) => setProjectName(event.target.value)} placeholder="例如：湖南数字地质" /></div>
-            <div><span>项目编码</span><input className="text-input" value={projectCode} onChange={(event) => setProjectCode(event.target.value)} placeholder="可选，例如 HNDZ-2026" /></div>
-            <button className="primary-button" type="button" onClick={() => void submitProject()}>保存项目</button>
-          </div>
-        )}
-
         {showAssetForm && (
           <div className="entity-form asset-entity-form">
             <label><span>所属项目</span><select className="select-input" value={assetForm.projectId} onChange={(event) => setAssetForm((current) => ({ ...current, projectId: event.target.value }))}>{projects.map((project) => <option key={project.id} value={project.id}>{project.name}</option>)}</select></label>
@@ -162,7 +137,7 @@ export function AssetsPage() {
         {loading ? (
           <div className="loading-state">正在读取本地资产台账…</div>
         ) : projects.length === 0 ? (
-          <div className="empty-state compact"><div className="empty-state-mark">PJ</div><h2>先创建项目工作区</h2><p>项目用于隔离资产、任务、执行证据和私有知识。</p><button className="primary-button" type="button" disabled={!isDesktopRuntime()} onClick={() => setShowProjectForm(true)}>新建项目</button></div>
+          <div className="empty-state compact"><div className="empty-state-mark">PJ</div><h2>先建立完整项目档案</h2><p>在项目中心配置系统、架构、技术栈与现场约束后，再登记服务器资产。</p><Link className="primary-button" to="/projects">前往项目中心</Link></div>
         ) : filtered.length === 0 ? (
           <div className="empty-state compact"><div className="empty-state-mark">AX</div><h2>{query ? "没有匹配资产" : "还没有服务器资产"}</h2><p>{query ? "调整搜索条件。" : "登记资产后即可保存环境快照和创建人工执行任务。"}</p></div>
         ) : (

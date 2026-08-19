@@ -18,6 +18,7 @@ describe("AI provider gateway", () => {
     const prepared = prepareOpsPrompt({
       mode: "diagnose-error",
       task: "排查数据库连接失败",
+      projectContext: "项目：国产化服务平台\n服务器：数据库节点 / 银河麒麟 V10 SP3 / aarch64",
       environment: "目标地址 192.168.10.206",
       commandOrSql: "psql postgresql://admin:secret@192.168.10.206/gis",
       executionOutput: "Authorization: Bearer sk-test_12345678901234567890",
@@ -27,6 +28,7 @@ describe("AI provider gateway", () => {
     expect(prepared.prompt).not.toContain("192.168.10.206");
     expect(prepared.prompt).not.toContain("secret@192");
     expect(prepared.prompt).not.toContain("sk-test_12345678901234567890");
+    expect(prepared.prompt).toContain("已选择项目上下文");
   });
 
   it("keeps provider templates free of persisted secrets", () => {

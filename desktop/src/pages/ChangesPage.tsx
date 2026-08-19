@@ -163,6 +163,7 @@ export function ChangesPage() {
   const sendFailureToAi = () => {
     if (!selected) return;
     window.sessionStorage.setItem(PENDING_ERROR_KEY, JSON.stringify({
+      projectId: selected.projectId,
       task: `分析人工执行包“${selected.title}”失败原因，并给出下一轮人工排查、修复、验证和回滚建议。`,
       commandOrSql: actualCommand || selected.commands,
       exitCode,

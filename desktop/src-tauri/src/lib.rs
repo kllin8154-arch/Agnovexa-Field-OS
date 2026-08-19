@@ -200,7 +200,7 @@ async fn chat_completion(request: AiChatRequest) -> Result<AiChatResponse, Strin
 
     let client = Client::builder()
         .timeout(Duration::from_secs(timeout_seconds))
-        .user_agent("Agnovexa-OpsDesk/0.2.0")
+        .user_agent("Agnovexa-OpsDesk/0.4.0")
         .build()
         .map_err(|_| "无法初始化 AI HTTP 客户端。".to_string())?;
 
@@ -292,12 +292,20 @@ async fn chat_completion(request: AiChatRequest) -> Result<AiChatResponse, Strin
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
-    let migrations = vec![Migration {
-        version: 1,
-        description: "initial_opsdesk_schema",
-        sql: include_str!("../migrations/0001_initial.sql"),
-        kind: MigrationKind::Up,
-    }];
+    let migrations = vec![
+        Migration {
+            version: 1,
+            description: "initial_opsdesk_schema",
+            sql: include_str!("../migrations/0001_initial.sql"),
+            kind: MigrationKind::Up,
+        },
+        Migration {
+            version: 2,
+            description: "project_profiles_and_technologies",
+            sql: include_str!("../migrations/0002_project_profiles.sql"),
+            kind: MigrationKind::Up,
+        },
+    ];
 
     tauri::Builder::default()
         .plugin(

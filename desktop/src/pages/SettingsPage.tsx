@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import { Notice, Panel, Tag } from "../components/Ui";
 import { probeStorage, type StorageProbe } from "../lib/database";
@@ -7,7 +7,9 @@ import { THEME_OPTIONS, useTheme } from "../lib/theme";
 import type { RuntimePolicy } from "../types";
 
 export function SettingsPage() {
-  const { mode, resolvedTheme, setMode } = useTheme();
+  const { mode, resolvedTheme, customTheme, setMode, importCustomTheme, removeCustomTheme } = useTheme();
+  const themeFileRef = useRef<HTMLInputElement | null>(null);
+  const [themeStatus, setThemeStatus] = useState<{ tone: "success" | "danger"; title: string; message: string } | null>(null);
   const [policy, setPolicy] = useState<RuntimePolicy>(DEFAULT_RUNTIME_POLICY);
   const [storage, setStorage] = useState<StorageProbe>({
     mode: "browser-preview",
@@ -18,6 +20,22 @@ export function SettingsPage() {
     void loadRuntimePolicy().then(setPolicy);
     void probeStorage().then(setStorage);
   }, []);
+
+  const loadThemeFile = async (file?: File) => {
+    if (!file) return;
+    if (file.size > 32 * 1024) {
+      setThemeStatus({ tone: "danger", title: "主题导入失败", message: "主题文件不能超过 32 KB。" });
+      return;
+    }
+    try {
+      const imported = importCustomTheme(await file.text());
+      setThemeStatus({ tone: "success", title: "自定义主题已启用", message: `“${imported.name}”已通过结构和可读性校验，仅保存在本机。` });
+    } catch (error) {
+      setThemeStatus({ tone: "danger", title: "主题导入失败", message: error instanceof Error ? error.message : String(error) });
+    } finally {
+      if (themeFileRef.current) themeFileRef.current.value = "";
+    }
+  };
 
   return (
     <div className="page-stack settings-page">
@@ -31,8 +49,21 @@ export function SettingsPage() {
               {mode === option.value && <small>当前选择</small>}
             </button>
           ))}
+          <button type="button" className={`theme-choice-card${mode === "custom" ? " active" : ""}`} onClick={() => customTheme ? setMode("custom") : themeFileRef.current?.click()}>
+            <div className="theme-preview theme-preview-custom" style={customTheme ? { background: customTheme.background, borderColor: customTheme.outline } : undefined}><span style={customTheme ? { background: customTheme.surfaceElevated } : undefined} /><div style={customTheme ? { background: customTheme.surface } : undefined}><i style={customTheme ? { background: customTheme.primary } : undefined} /><i style={customTheme ? { background: customTheme.secondary } : undefined} /><i style={customTheme ? { background: customTheme.success } : undefined} /></div></div>
+            <strong>{customTheme?.name ?? "导入主题"}</strong>
+            <span>{customTheme ? "本机自定义 JSON 主题" : "校验 JSON 后安全应用"}</span>
+            {mode === "custom" && <small>当前选择</small>}
+          </button>
         </div>
-        <div className="settings-inline-note">当前实际主题：<strong>{resolvedTheme === "dark" ? "深色" : "明亮"}</strong>。主题设置仅保存在本机，不影响项目数据。</div>
+        <input ref={themeFileRef} className="visually-hidden" type="file" name="customThemeFile" aria-label="选择自定义主题 JSON 文件" accept="application/json,.json" onChange={(event) => void loadThemeFile(event.target.files?.[0])} />
+        <div className="theme-import-actions">
+          <span>支持 schemaVersion 1；低对比文字会自动修正，非法主题不会覆盖当前设置。</span>
+          <button className="secondary-button" type="button" onClick={() => themeFileRef.current?.click()}>{customTheme ? "替换主题文件" : "选择 JSON 文件"}</button>
+          {customTheme && <button className="text-button danger-text" type="button" onClick={() => { removeCustomTheme(); setThemeStatus(null); }}>移除自定义主题</button>}
+        </div>
+        {themeStatus && <Notice tone={themeStatus.tone} title={themeStatus.title}>{themeStatus.message}</Notice>}
+        <div className="settings-inline-note">当前实际主题：<strong>{mode === "custom" && customTheme ? customTheme.name : resolvedTheme === "dark" ? "深色" : "明亮"}</strong>。主题设置仅保存在本机，不影响项目数据。</div>
       </Panel>
 
       <Notice tone="success" title="不可绕过的人工执行边界">

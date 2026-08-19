@@ -32,6 +32,22 @@ function parseJsonArray(value: string | null | undefined): string[] {
   }
 }
 
+function parseJsonObject(value: string | null | undefined): Record<string, string> {
+  if (!value) return {};
+  try {
+    const parsed = JSON.parse(value) as unknown;
+    if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) return {};
+    return Object.fromEntries(
+      Object.entries(parsed)
+        .filter((entry): entry is [string, string] => typeof entry[1] === "string")
+        .map(([key, item]) => [key, item.trim()])
+        .filter(([, item]) => item.length > 0),
+    );
+  } catch {
+    return {};
+  }
+}
+
 function environmentLabel(value: string): string {
   const labels: Record<string, string> = {
     development: "开发",
@@ -49,9 +65,25 @@ export interface ProjectRecord {
   code: string;
   description: string;
   status: "active" | "paused" | "archived";
+  profile: ProjectProfile;
+  technologies: string[];
   createdAt: string;
   updatedAt: string;
 }
+
+export interface ProjectProfile {
+  operatingSystems: string[];
+  architectures: string[];
+  deploymentMode: "offline" | "intranet" | "hybrid";
+  constraints: string;
+}
+
+export const EMPTY_PROJECT_PROFILE: ProjectProfile = {
+  operatingSystems: [],
+  architectures: [],
+  deploymentMode: "offline",
+  constraints: "",
+};
 
 interface ProjectRow {
   id: string;
@@ -59,58 +91,232 @@ interface ProjectRow {
   code: string;
   description: string;
   status: ProjectRecord["status"];
+  profile_json: string;
+  technologies_json: string;
   created_at: string;
   updated_at: string;
 }
 
-export async function listProjects(): Promise<ProjectRecord[]> {
-  const db = await getDatabase();
-  const rows = await db.select<ProjectRow[]>(
-    `SELECT id, name, code, description, status, created_at, updated_at
-     FROM projects
-     WHERE status <> 'archived'
-     ORDER BY updated_at DESC, name COLLATE NOCASE`,
-  );
-  return rows.map((row) => ({
-    id: row.id,
-    name: row.name,
-    code: row.code,
-    description: row.description,
-    status: row.status,
-    createdAt: row.created_at,
-    updatedAt: row.updated_at,
-  }));
+function normalizeTextList(values: string[], maxItems = 40): string[] {
+  return Array.from(new Set(values.map((item) => item.trim().replace(/\s+/g, " ")).filter(Boolean)))
+    .slice(0, maxItems)
+    .map((item) => item.slice(0, 80));
 }
 
-export async function createProject(input: {
-  name: string;
-  code?: string;
-  description?: string;
-}): Promise<ProjectRecord> {
-  const name = input.name.trim();
-  if (name.length < 2) throw new Error("项目名称至少需要 2 个字符。");
-  const db = await getDatabase();
-  const id = makeId("project");
-  await db.execute(
-    `INSERT INTO projects (id, name, code, description, status)
-     VALUES ($1, $2, $3, $4, 'active')`,
-    [id, name, input.code?.trim() ?? "", input.description?.trim() ?? ""],
-  );
-  const rows = await db.select<ProjectRow[]>(
-    `SELECT id, name, code, description, status, created_at, updated_at
-     FROM projects WHERE id = $1`,
-    [id],
-  );
-  const row = rows[0];
-  if (!row) throw new Error("项目创建后未能读取，请重试。");
+function parseProjectProfile(value: string): ProjectProfile {
+  try {
+    const parsed = JSON.parse(value) as Partial<ProjectProfile>;
+    const deploymentMode = parsed.deploymentMode === "intranet" || parsed.deploymentMode === "hybrid"
+      ? parsed.deploymentMode
+      : "offline";
+    return {
+      operatingSystems: normalizeTextList(Array.isArray(parsed.operatingSystems) ? parsed.operatingSystems.filter((item): item is string => typeof item === "string") : []),
+      architectures: normalizeTextList(Array.isArray(parsed.architectures) ? parsed.architectures.filter((item): item is string => typeof item === "string") : []),
+      deploymentMode,
+      constraints: typeof parsed.constraints === "string" ? parsed.constraints.trim().slice(0, 4_000) : "",
+    };
+  } catch {
+    return { ...EMPTY_PROJECT_PROFILE };
+  }
+}
+
+function mapProjectRow(row: ProjectRow): ProjectRecord {
   return {
     id: row.id,
     name: row.name,
     code: row.code,
     description: row.description,
     status: row.status,
+    profile: parseProjectProfile(row.profile_json),
+    technologies: normalizeTextList(parseJsonArray(row.technologies_json)),
     createdAt: row.created_at,
     updatedAt: row.updated_at,
+  };
+}
+
+const PROJECT_COLUMNS = "id, name, code, description, status, profile_json, technologies_json, created_at, updated_at";
+
+export async function listProjects(): Promise<ProjectRecord[]> {
+  const db = await getDatabase();
+  const rows = await db.select<ProjectRow[]>(
+    `SELECT ${PROJECT_COLUMNS}
+     FROM projects
+     WHERE status <> 'archived'
+     ORDER BY updated_at DESC, name COLLATE NOCASE`,
+  );
+  return rows.map(mapProjectRow);
+}
+
+export async function createProject(input: {
+  name: string;
+  code?: string;
+  description?: string;
+  status?: "active" | "paused";
+  profile?: ProjectProfile;
+  technologies?: string[];
+}): Promise<ProjectRecord> {
+  const name = input.name.trim();
+  if (name.length < 2) throw new Error("项目名称至少需要 2 个字符。");
+  if ((input.technologies?.length ?? 0) > 40) throw new Error("单个项目最多保存 40 项技术，建议合并重复版本描述。");
+  const db = await getDatabase();
+  const id = makeId("project");
+  await db.execute(
+    `INSERT INTO projects (id, name, code, description, status, profile_json, technologies_json)
+     VALUES ($1, $2, $3, $4, $5, $6, $7)`,
+    [
+      id,
+      name,
+      input.code?.trim() ?? "",
+      input.description?.trim() ?? "",
+      input.status === "paused" ? "paused" : "active",
+      JSON.stringify(input.profile ?? EMPTY_PROJECT_PROFILE),
+      JSON.stringify(normalizeTextList(input.technologies ?? [])),
+    ],
+  );
+  const rows = await db.select<ProjectRow[]>(
+    `SELECT ${PROJECT_COLUMNS}
+     FROM projects WHERE id = $1`,
+    [id],
+  );
+  const row = rows[0];
+  if (!row) throw new Error("项目创建后未能读取，请重试。");
+  return mapProjectRow(row);
+}
+
+export async function updateProject(input: {
+  id: string;
+  name: string;
+  code: string;
+  description: string;
+  status: "active" | "paused";
+  profile: ProjectProfile;
+  technologies: string[];
+}): Promise<ProjectRecord> {
+  const name = input.name.trim();
+  if (name.length < 2) throw new Error("项目名称至少需要 2 个字符。");
+  if (input.technologies.length > 40) throw new Error("单个项目最多保存 40 项技术，建议合并重复版本描述。");
+  const db = await getDatabase();
+  await db.execute(
+    `UPDATE projects
+     SET name = $2, code = $3, description = $4, status = $5,
+         profile_json = $6, technologies_json = $7, updated_at = CURRENT_TIMESTAMP
+     WHERE id = $1`,
+    [
+      input.id,
+      name,
+      input.code.trim(),
+      input.description.trim(),
+      input.status,
+      JSON.stringify({
+        operatingSystems: normalizeTextList(input.profile.operatingSystems),
+        architectures: normalizeTextList(input.profile.architectures),
+        deploymentMode: input.profile.deploymentMode,
+        constraints: input.profile.constraints.trim().slice(0, 4_000),
+      }),
+      JSON.stringify(normalizeTextList(input.technologies)),
+    ],
+  );
+  const rows = await db.select<ProjectRow[]>(`SELECT ${PROJECT_COLUMNS} FROM projects WHERE id = $1`, [input.id]);
+  const row = rows[0];
+  if (!row) throw new Error("项目更新后未能读取，请重试。");
+  return mapProjectRow(row);
+}
+
+export interface ProjectAiContext {
+  projectId: string;
+  projectName: string;
+  projectCode: string;
+  assetCount: number;
+  verifiedKnowledgeCount: number;
+  summary: string;
+}
+
+interface ProjectContextAssetRow {
+  name: string;
+  environment: AssetRecord["environment"];
+  operating_system: string;
+  architecture: AssetRecord["architecture"];
+  server_model: string;
+  parsed_facts_json: string | null;
+}
+
+interface ProjectContextKnowledgeRow {
+  title: string;
+  summary: string;
+  environment_scope: string;
+}
+
+export async function getProjectAiContext(projectId: string): Promise<ProjectAiContext> {
+  if (!projectId) throw new Error("请选择需要作为 AI 上下文的项目。");
+  const db = await getDatabase();
+  const projects = await db.select<ProjectRow[]>(
+    `SELECT ${PROJECT_COLUMNS}
+     FROM projects WHERE id = $1 AND status <> 'archived'`,
+    [projectId],
+  );
+  const project = projects[0];
+  if (!project) throw new Error("所选项目不存在或已归档。");
+  const projectRecord = mapProjectRow(project);
+
+  const [assets, knowledge] = await Promise.all([
+    db.select<ProjectContextAssetRow[]>(
+      `SELECT a.name, a.environment, a.operating_system, a.architecture, a.server_model,
+              s.parsed_facts_json
+       FROM assets a
+       LEFT JOIN environment_snapshots s ON s.id = (
+         SELECT es.id FROM environment_snapshots es
+         WHERE es.asset_id = a.id ORDER BY es.collected_at DESC LIMIT 1
+       )
+       WHERE a.project_id = $1
+       ORDER BY CASE a.environment WHEN 'production' THEN 0 ELSE 1 END, a.name COLLATE NOCASE`,
+      [projectId],
+    ),
+    db.select<ProjectContextKnowledgeRow[]>(
+      `SELECT title, summary, environment_scope
+       FROM knowledge_entries
+       WHERE verification_status = 'verified' AND (project_id = $1 OR project_id IS NULL)
+       ORDER BY CASE WHEN project_id = $1 THEN 0 ELSE 1 END, updated_at DESC
+       LIMIT 12`,
+      [projectId],
+    ),
+  ]);
+
+  const assetLines = assets.map((asset) => {
+    const facts = parseJsonObject(asset.parsed_facts_json);
+    const factText = Object.entries(facts).slice(0, 8).map(([key, value]) => `${key}=${value}`).join("；");
+    const base = [
+      asset.name,
+      environmentLabel(asset.environment),
+      asset.operating_system || "系统待采集",
+      asset.architecture,
+      asset.server_model,
+    ].filter(Boolean).join(" / ");
+    return `- ${base}${factText ? `；最近快照：${factText}` : ""}`;
+  });
+  const knowledgeLines = knowledge.map((entry) =>
+    `- [${entry.environment_scope}] ${entry.title}${entry.summary ? `：${entry.summary}` : ""}`,
+  );
+  const summary = [
+    `项目：${project.name}${project.code ? `（${project.code}）` : ""}`,
+    project.description ? `项目说明：${project.description}` : "",
+    `项目操作系统：${projectRecord.profile.operatingSystems.join("、") || "未指定"}`,
+    `项目架构：${projectRecord.profile.architectures.join("、") || "未指定"}`,
+    `项目技术栈：${projectRecord.technologies.join("、") || "未指定"}`,
+    projectRecord.profile.constraints ? `现场约束：${projectRecord.profile.constraints}` : "",
+    `服务器资产（${assets.length}）：`,
+    assetLines.length ? assetLines.join("\n") : "- 暂无资产或环境快照",
+    `已验证知识（${knowledge.length}）：`,
+    knowledgeLines.length ? knowledgeLines.join("\n") : "- 暂无可直接引用的已验证知识",
+    "上下文不包含资产地址、用户名、密码、Token 或连接串。",
+  ].filter(Boolean).join("\n");
+
+  return {
+    projectId: project.id,
+    projectName: project.name,
+    projectCode: project.code,
+    assetCount: assets.length,
+    verifiedKnowledgeCount: knowledge.length,
+    summary,
   };
 }
 
@@ -370,6 +576,7 @@ export async function createDeploymentTask(input: {
 
 export interface ManualPackageRecord {
   taskId: string;
+  projectId: string;
   planId: string;
   stepId: string;
   title: string;
@@ -387,6 +594,7 @@ export interface ManualPackageRecord {
 
 interface ManualPackageRow {
   task_id: string;
+  project_id: string;
   plan_id: string;
   step_id: string;
   title: string;
@@ -405,7 +613,7 @@ interface ManualPackageRow {
 export async function listManualPackages(): Promise<ManualPackageRecord[]> {
   const db = await getDatabase();
   const rows = await db.select<ManualPackageRow[]>(
-    `SELECT t.id AS task_id, cp.id AS plan_id, cs.id AS step_id, t.title,
+    `SELECT t.id AS task_id, t.project_id, cp.id AS plan_id, cs.id AS step_id, t.title,
             p.name AS project_name, a.name AS asset_name, t.workflow_phase,
             cp.risk_level, cs.objective, cs.command_preview, cs.expected_result,
             cs.validation_commands, cs.rollback_commands, t.created_at
@@ -418,6 +626,7 @@ export async function listManualPackages(): Promise<ManualPackageRecord[]> {
   );
   return rows.map((row) => ({
     taskId: row.task_id,
+    projectId: row.project_id,
     planId: row.plan_id,
     stepId: row.step_id,
     title: row.title,
