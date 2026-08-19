@@ -53,6 +53,14 @@ jobs:
       - name: Type-check and web build
         run: npm run build
 
+      - name: Upload npm lockfile for review
+        uses: actions/upload-artifact@v4
+        with:
+          name: opsdesk-package-lock
+          path: desktop/package-lock.json
+          if-no-files-found: error
+          retention-days: 3
+
   tauri-check:
     runs-on: windows-latest
     defaults:
@@ -84,11 +92,16 @@ jobs:
       - name: Check Tauri backend
         run: cargo check --quiet --manifest-path src-tauri/Cargo.toml
 
+      - name: Upload Cargo lockfile for review
+        uses: actions/upload-artifact@v4
+        with:
+          name: opsdesk-cargo-lock
+          path: desktop/src-tauri/Cargo.lock
+          if-no-files-found: error
+          retention-days: 3
+
   windows-release:
     if: >-
-      (github.event_name == 'pull_request' &&
-       github.event.pull_request.head.repo.full_name == github.repository &&
-       github.event.pull_request.head.ref == 'agent/opsdesk-windows-release') ||
       (github.event_name == 'push' && github.ref == 'refs/heads/main') ||
       github.event_name == 'workflow_dispatch'
     needs:
@@ -101,7 +114,7 @@ jobs:
       - name: Checkout verified source
         uses: actions/checkout@v4
         with:
-          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          ref: ${{ github.sha }}
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
@@ -141,9 +154,9 @@ jobs:
             - 不包含 SSH、SFTP、Shell、数据库自动执行或远程写入能力。
             - 命令和 SQL 只能由现场工程师复制后人工执行。
             - 支持 DeepSeek、OpenAI、通义千问、Kimi、智谱 GLM、硅基流动及自定义兼容接口。
-            - API Key 不进入 Git、报告或普通业务数据。
+            - API Key 不进入 Git、报告、知识库或工作区备份。
             - 安装包内置 WebView2 离线安装器。
-          releaseCommitish: ${{ github.event.pull_request.head.sha || github.sha }}
+          releaseCommitish: ${{ github.sha }}
           releaseDraft: false
           prerelease: false
           args: --bundles nsis
