@@ -57,6 +57,14 @@ jobs:
       - name: Type-check and web build
         run: npm run build
 
+      - name: Upload built web UI for visual QA
+        uses: actions/upload-artifact@v4
+        with:
+          name: opsdesk-web-preview
+          path: desktop/dist
+          if-no-files-found: error
+          retention-days: 7
+
   tauri-check:
     runs-on: windows-latest
     defaults:
