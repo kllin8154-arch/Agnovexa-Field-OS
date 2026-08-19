@@ -45,7 +45,7 @@ jobs:
         run: npm install --no-audit --no-fund
 
       - name: Production dependency audit
-        run: npm audit --omit=dev --audit-level=high
+        run: npm audit --omit=dev --audit-level=moderate
 
       - name: Unit tests
         run: npm run test
