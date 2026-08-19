@@ -277,6 +277,17 @@ export async function saveVerificationLayer(input: {
     throw new Error("人工豁免必须填写至少 10 个字符的原因和责任说明。");
   }
 
+  const db = await getProductionDatabase();
+  const taskRows = await db.select<Array<{ status: string }>>(
+    "SELECT status FROM deployment_tasks WHERE id = $1",
+    [input.taskId],
+  );
+  const taskStatus = taskRows[0]?.status;
+  if (!taskStatus) throw new Error("没有找到待验收任务。");
+  if (["verified", "human_exempt", "archived"].includes(taskStatus)) {
+    throw new Error("任务已经关单，不能直接修改验收证据；如需修订，请先退回人工执行并保留原因。");
+  }
+
   const evidence = redactSensitiveText(input.evidence).text;
   const exemptionReason = redactSensitiveText(input.exemptionReason).text;
   const successCriteria = redactSensitiveText(input.successCriteria).text;
@@ -295,7 +306,6 @@ export async function saveVerificationLayer(input: {
     },
   });
 
-  const db = await getProductionDatabase();
   await db.execute(
     `UPDATE deployment_tasks
      SET workflow_phase = 'VERIFY',
@@ -320,6 +330,9 @@ export async function closeVerificationTask(input: {
   }
 
   const workspace = await loadVerificationWorkspace(input.taskId);
+  if (["verified", "human_exempt", "archived"].includes(workspace.task.status)) {
+    throw new Error("任务已经完成关单，不能重复关单。");
+  }
   const gate = evaluateVerificationGate(workspace.layers);
   if (!gate.canClose) {
     throw new Error(
