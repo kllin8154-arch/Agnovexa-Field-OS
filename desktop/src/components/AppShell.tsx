@@ -13,6 +13,7 @@ type IconName =
   | "changes"
   | "ai"
   | "knowledge"
+  | "archive"
   | "providers"
   | "settings"
   | "menu"
@@ -42,6 +43,7 @@ function Icon({ name, ...props }: SVGProps<SVGSVGElement> & { name: IconName }) 
     changes: <><path d="M7 3h10l2 2v16H5V5z" /><path d="M9 9h6M9 13h6M9 17h4" /></>,
     ai: <><path d="M8 3h8l2 3v12l-3 3H9l-3-3V6z" /><path d="M9 10h.01M15 10h.01M9 15c2 1.3 4 1.3 6 0" /><path d="M12 3V1" /></>,
     knowledge: <><path d="M4 5.5A2.5 2.5 0 0 1 6.5 3H11v16H6.5A2.5 2.5 0 0 0 4 21.5z" /><path d="M20 5.5A2.5 2.5 0 0 0 17.5 3H13v16h4.5A2.5 2.5 0 0 1 20 21.5z" /></>,
+    archive: <><path d="M4 7h16v13H4z" /><path d="M3 3h18v4H3zM9 11h6" /></>,
     providers: <><circle cx="12" cy="12" r="3" /><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.9l.1.1-2.8 2.8-.1-.1a1.7 1.7 0 0 0-1.9-.3 1.7 1.7 0 0 0-1 1.6v.2h-4V21a1.7 1.7 0 0 0-1-1.6 1.7 1.7 0 0 0-1.9.3l-.1.1L4.2 17l.1-.1A1.7 1.7 0 0 0 4.6 15 1.7 1.7 0 0 0 3 14H2.8v-4H3a1.7 1.7 0 0 0 1.6-1 1.7 1.7 0 0 0-.3-1.9L4.2 7 7 4.2l.1.1a1.7 1.7 0 0 0 1.9.3A1.7 1.7 0 0 0 10 3V2.8h4V3a1.7 1.7 0 0 0 1 1.6 1.7 1.7 0 0 0 1.9-.3l.1-.1L19.8 7l-.1.1a1.7 1.7 0 0 0-.3 1.9 1.7 1.7 0 0 0 1.6 1h.2v4H21a1.7 1.7 0 0 0-1.6 1Z" /></>,
     settings: <><circle cx="12" cy="12" r="3" /><path d="M19 12a7 7 0 0 0-.1-1l2-1.5-2-3.4-2.4 1a7 7 0 0 0-1.7-1L14.5 3h-5L9 6.1a7 7 0 0 0-1.7 1l-2.4-1-2 3.4 2 1.5a7 7 0 0 0 0 2l-2 1.5 2 3.4 2.4-1a7 7 0 0 0 1.7 1l.5 3.1h5l.5-3.1a7 7 0 0 0 1.7-1l2.4 1 2-3.4-2-1.5a7 7 0 0 0 .1-1Z" /></>,
     menu: <><path d="M4 7h16M4 12h16M4 17h16" /></>,
@@ -75,6 +77,7 @@ const navGroups = [
   {
     label: "系统",
     items: [
+      { to: "/archive", label: "数据与归档", icon: "archive" as const },
       { to: "/ai-settings", label: "AI 服务配置", icon: "providers" as const },
       { to: "/settings", label: "偏好与安全", icon: "settings" as const },
     ],
@@ -89,6 +92,7 @@ const pageTitles: Record<string, { title: string; subtitle: string }> = {
   "/changes": { title: "变更中心", subtitle: "命令与 SQL 只供审阅、复制和人工执行" },
   "/ai": { title: "AI 工作台", subtitle: "调用已配置服务，生成方案、排错、SQL 审查与知识草稿" },
   "/knowledge": { title: "双知识库", subtitle: "内部优先、外部待审、验证后再沉淀" },
+  "/archive": { title: "数据与归档", subtitle: "SQLite 完整性、可校验备份恢复与部署报告" },
   "/ai-settings": { title: "AI 服务配置", subtitle: "独立管理 Provider、模型、接口与会话密钥" },
   "/settings": { title: "偏好与安全", subtitle: "主题、存储状态和不可绕过的人工执行边界" },
 };
@@ -141,9 +145,7 @@ export function AppShell() {
               <span>OpsDesk</span>
             </div>
           </Link>
-          <button className="icon-button sidebar-toggle" type="button" onClick={toggleSidebar} aria-label="收起或展开侧栏">
-            <Icon name="menu" />
-          </button>
+          <button className="icon-button sidebar-toggle" type="button" onClick={toggleSidebar} aria-label="收起或展开侧栏"><Icon name="menu" /></button>
         </div>
 
         <div className="policy-chip" title="系统没有 SSH、Shell、SFTP 或数据库自动执行能力">
@@ -156,13 +158,7 @@ export function AppShell() {
             <div className="nav-group" key={group.label}>
               <div className="nav-group-label">{group.label}</div>
               {group.items.map((item) => (
-                <NavLink
-                  key={item.to}
-                  to={item.to}
-                  end={item.to === "/"}
-                  className={({ isActive }) => `nav-item${isActive ? " active" : ""}`}
-                  title={collapsed ? item.label : undefined}
-                >
+                <NavLink key={item.to} to={item.to} end={item.to === "/"} className={({ isActive }) => `nav-item${isActive ? " active" : ""}`} title={collapsed ? item.label : undefined}>
                   <span className="nav-icon"><Icon name={item.icon} /></span>
                   <span className="nav-label">{item.label}</span>
                 </NavLink>
@@ -172,12 +168,9 @@ export function AppShell() {
         </nav>
 
         <div className="sidebar-footer">
-          <div className="sidebar-footer-head">
-            <span className="status-dot" />
-            <strong>{storage.mode === "sqlite" ? "本地数据已就绪" : "预览模式"}</strong>
-          </div>
+          <div className="sidebar-footer-head"><span className="status-dot" /><strong>{storage.mode === "sqlite" ? "本地数据已就绪" : "预览模式"}</strong></div>
           <span>{policy?.executionMode === "manual-only" ? "所有目标环境操作由人工执行" : "正在读取运行策略"}</span>
-          <small>v0.3.0 · Windows Desktop</small>
+          <small>v0.4.0 · Windows Desktop</small>
         </div>
       </aside>
 
@@ -192,37 +185,20 @@ export function AppShell() {
           <div className="topbar-actions">
             <div className="theme-switch" aria-label="主题切换">
               {themeButtons.map((item) => (
-                <button
-                  key={item.mode}
-                  type="button"
-                  className={mode === item.mode ? "active" : ""}
-                  onClick={() => setMode(item.mode)}
-                  title={item.label}
-                  aria-label={item.label}
-                >
-                  <Icon name={item.icon} />
-                </button>
+                <button key={item.mode} type="button" className={mode === item.mode ? "active" : ""} onClick={() => setMode(item.mode)} title={item.label} aria-label={item.label}><Icon name={item.icon} /></button>
               ))}
             </div>
 
             <div className="runtime-card" title={storage.detail}>
               <span className="status-dot" />
-              <div>
-                <small>数据模式</small>
-                <strong>{modeLabel}</strong>
-              </div>
+              <div><small>数据模式</small><strong>{modeLabel}</strong></div>
             </div>
 
-            <Link className="primary-button topbar-primary" to="/deployments">
-              <Icon name="plus" />
-              <span>新建任务</span>
-            </Link>
+            <Link className="primary-button topbar-primary" to="/deployments"><Icon name="plus" /><span>新建任务</span></Link>
           </div>
         </header>
 
-        <main className="page-content">
-          <Outlet />
-        </main>
+        <main className="page-content"><Outlet /></main>
       </div>
     </div>
   );

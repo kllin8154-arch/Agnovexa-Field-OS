@@ -42,7 +42,10 @@ jobs:
           node-version: 22
 
       - name: Install dependencies
-        run: npm install
+        run: npm install --no-audit --no-fund
+
+      - name: Production dependency audit
+        run: npm audit --omit=dev --audit-level=high
 
       - name: Unit tests
         run: npm run test
@@ -70,7 +73,7 @@ jobs:
         uses: dtolnay/rust-toolchain@stable
 
       - name: Install dependencies
-        run: npm install
+        run: npm install --no-audit --no-fund
 
       - name: Generate desktop icons from SVG
         run: npm run prepare:icons
@@ -85,7 +88,7 @@ jobs:
     if: >-
       (github.event_name == 'pull_request' &&
        github.event.pull_request.head.repo.full_name == github.repository &&
-       github.event.pull_request.head.ref == 'agent/opsdesk-windows-release') ||
+       startsWith(github.event.pull_request.head.ref, 'agent/opsdesk-windows-release')) ||
       (github.event_name == 'push' && github.ref == 'refs/heads/main') ||
       github.event_name == 'workflow_dispatch'
     needs:
@@ -110,7 +113,7 @@ jobs:
 
       - name: Install dependencies
         working-directory: desktop
-        run: npm install
+        run: npm install --no-audit --no-fund
 
       - name: Generate desktop icons from SVG
         working-directory: desktop
@@ -135,10 +138,11 @@ jobs:
           releaseBody: |
             Windows x64 NSIS 安装程序。
 
-            - 不包含 SSH、SFTP、Shell、数据库自动执行或远程写入能力。
+            - 不包含 SSH、SFTP、Shell、生产数据库执行或远程写入能力。
             - 命令和 SQL 只能由现场工程师复制后人工执行。
-            - 支持 DeepSeek、OpenAI、通义千问、Kimi、智谱 GLM、硅基流动及自定义兼容接口。
-            - API Key 不进入 Git、报告或普通业务数据。
+            - AI 服务配置与 AI 工作台完全分离，支持多 Provider。
+            - 新增 SQLite 完整性检查、SHA-256 工作区备份恢复与部署报告归档。
+            - API Key 不进入 SQLite、工作区备份、报告或 Git。
             - 安装包内置 WebView2 离线安装器。
           releaseCommitish: ${{ github.event.pull_request.head.sha || github.sha }}
           releaseDraft: false
