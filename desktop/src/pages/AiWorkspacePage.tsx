@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState, type KeyboardEvent } from "react";
 import { Link } from "react-router-dom";
+import { BrandMark } from "../components/BrandMark";
 import { CodeBlock, Notice, Tag } from "../components/Ui";
 import {
   loadProviderProfiles,
@@ -312,7 +313,7 @@ export function AiWorkspacePage() {
           <div className="ai-message-list" aria-live="polite">
             {messages.length === 0 ? (
               <div className="ai-chat-empty">
-                <span className="ai-chat-mark">AX</span>
+                <span className="ai-chat-mark" aria-hidden="true"><BrandMark className="brand-mark" /></span>
                 <h2>从项目事实开始，而不是重新填一遍环境</h2>
                 <p>{projectContext ? `已载入“${projectContext.projectName}”的 ${projectContext.assetCount} 项资产和 ${projectContext.verifiedKnowledgeCount} 条已验证知识。` : "选择项目后，系统会自动组织资产、环境快照与已验证知识。"}</p>
                 <div className="ai-starter-grid">
@@ -325,7 +326,9 @@ export function AiWorkspacePage() {
               </div>
             ) : messages.map((message) => (
               <article className={`ai-message ai-message-${message.role}`} key={message.id}>
-                <div className="ai-message-avatar">{message.role === "assistant" ? "AX" : "我"}</div>
+                <div className="ai-message-avatar" aria-hidden="true">
+                  {message.role === "assistant" ? <BrandMark className="brand-mark" /> : "我"}
+                </div>
                 <div className="ai-message-body">
                   <header>
                     <strong>{message.role === "assistant" ? "Agnovexa AI" : "现场问题"}</strong>

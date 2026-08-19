@@ -1,4 +1,5 @@
 import { Component, type ErrorInfo, type ReactNode } from "react";
+import { BrandMark } from "./BrandMark";
 
 interface Props {
   children: ReactNode;
@@ -27,7 +28,9 @@ export class AppErrorBoundary extends Component<Props, State> {
     return (
       <main className="fatal-screen">
         <section className="fatal-card">
-          <div className="fatal-mark">AX</div>
+          <div className="fatal-mark" aria-hidden="true">
+            <BrandMark className="brand-mark" />
+          </div>
           <p className="eyebrow">APPLICATION RECOVERY</p>
           <h1>界面发生异常，业务数据没有被自动修改</h1>
           <p>

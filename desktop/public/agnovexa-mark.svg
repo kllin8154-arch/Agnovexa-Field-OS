@@ -1,6 +1,6 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1000 1000" width="1000" height="1000" role="img" aria-labelledby="title desc">
-  <title id="title">Agnovexa Folded A</title>
-  <desc id="desc">银色折叠带状字母 A 与右下独立切面组成的 Agnovexa 应用图标。</desc>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1000 1000" role="img" aria-labelledby="title desc">
+  <title id="title">Agnovexa</title>
+  <desc id="desc">Agnovexa Folded A 品牌标识。</desc>
   <rect x="30" y="30" width="940" height="940" rx="210" fill="#070809"/>
   <defs>
     <linearGradient id="silver" x1="0" y1="0" x2="1" y2="1">
@@ -16,10 +16,8 @@
       <stop offset="1" stop-color="#09090b"/>
     </linearGradient>
   </defs>
-  <g>
-    <path d="M185 825 465 165l155 315H505l-40-85-165 430Z" fill="url(#silver)"/>
-    <path d="M415 548h285L574 652Z" fill="url(#silver)"/>
-    <path d="m574 652 126-104 135 277H665Z" fill="url(#silverDark)"/>
-    <path d="m574 652 126-104-36 277Z" fill="#08090b" opacity=".55"/>
-  </g>
+  <path d="M185 825 465 165l155 315H505l-40-85-165 430Z" fill="url(#silver)"/>
+  <path d="M415 548h285L574 652Z" fill="url(#silver)"/>
+  <path d="m574 652 126-104 135 277H665Z" fill="url(#silverDark)"/>
+  <path d="m574 652 126-104-36 277Z" fill="#08090b" opacity=".55"/>
 </svg>

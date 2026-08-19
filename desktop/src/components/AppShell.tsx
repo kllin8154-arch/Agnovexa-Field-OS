@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState, type ReactNode, type SVGProps } from "react";
 import { Link, NavLink, Outlet, useLocation } from "react-router-dom";
+import { BrandMark } from "./BrandMark";
 import { probeStorage, type StorageProbe } from "../lib/database";
 import { loadRuntimePolicy } from "../lib/runtimePolicy";
 import { useTheme, type ThemeMode } from "../lib/theme";
@@ -150,8 +151,10 @@ export function AppShell() {
     <div className={`app-frame${collapsed ? " sidebar-collapsed" : ""}`}>
       <aside className="sidebar">
         <div className="brand-row">
-          <Link className="brand" to="/" aria-label="AX Agnovexa OPSDESK，返回工作台">
-            <div className="brand-symbol">AX</div>
+          <Link className="brand" to="/" aria-label="Agnovexa OpsDesk，返回工作台">
+            <div className="brand-symbol" aria-hidden="true">
+              <BrandMark className="brand-mark" />
+            </div>
             <div className="brand-copy">
               <strong>Agnovexa</strong>
               <span>OpsDesk</span>

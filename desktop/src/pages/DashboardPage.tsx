@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
+import { BrandMark } from "../components/BrandMark";
 import { MetricCard, Notice, Panel, Tag } from "../components/Ui";
 import {
   getDashboardSummary,
@@ -132,7 +133,7 @@ export function DashboardPage() {
           <div className="loading-state">正在读取本地资产…</div>
         ) : assets.length === 0 ? (
           <div className="empty-state compact horizontal-empty">
-            <div className="empty-state-mark">AX</div>
+            <div className="empty-state-mark" aria-hidden="true"><BrandMark className="brand-mark" /></div>
             <div><h2>尚未登记服务器资产</h2><p>资产只作为本地台账和环境快照目标，不会被程序自动连接。</p></div>
             <Link className="primary-button" to="/assets">登记资产</Link>
           </div>

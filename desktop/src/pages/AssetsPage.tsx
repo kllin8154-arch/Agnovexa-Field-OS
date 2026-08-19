@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
+import { BrandMark } from "../components/BrandMark";
 import { Notice, Panel, Tag } from "../components/Ui";
 import {
   createAsset,
@@ -139,7 +140,7 @@ export function AssetsPage() {
         ) : projects.length === 0 ? (
           <div className="empty-state compact"><div className="empty-state-mark">PJ</div><h2>先建立完整项目档案</h2><p>在项目中心配置系统、架构、技术栈与现场约束后，再登记服务器资产。</p><Link className="primary-button" to="/projects">前往项目中心</Link></div>
         ) : filtered.length === 0 ? (
-          <div className="empty-state compact"><div className="empty-state-mark">AX</div><h2>{query ? "没有匹配资产" : "还没有服务器资产"}</h2><p>{query ? "调整搜索条件。" : "登记资产后即可保存环境快照和创建人工执行任务。"}</p></div>
+          <div className="empty-state compact"><div className="empty-state-mark" aria-hidden="true"><BrandMark className="brand-mark" /></div><h2>{query ? "没有匹配资产" : "还没有服务器资产"}</h2><p>{query ? "调整搜索条件。" : "登记资产后即可保存环境快照和创建人工执行任务。"}</p></div>
         ) : (
           <div className="asset-grid production-asset-grid">
             {filtered.map((asset) => (
