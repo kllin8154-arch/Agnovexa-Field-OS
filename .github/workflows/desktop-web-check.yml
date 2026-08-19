@@ -1,22 +1,28 @@
-name: Desktop Web Check
+name: Desktop CI and Windows Release
 
 on:
   pull_request:
     paths:
       - "desktop/**"
+      - "README.md"
+      - "OPS_DESK_DOWNLOAD.md"
       - ".github/workflows/desktop-web-check.yml"
-      - ".github/workflows/desktop-windows-release.yml"
   push:
     branches:
       - "main"
     paths:
       - "desktop/**"
+      - "README.md"
+      - "OPS_DESK_DOWNLOAD.md"
       - ".github/workflows/desktop-web-check.yml"
-      - ".github/workflows/desktop-windows-release.yml"
   workflow_dispatch:
 
 permissions:
   contents: read
+
+concurrency:
+  group: opsdesk-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
   web-build:
@@ -27,8 +33,6 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
-        with:
-          ref: ${{ github.event.pull_request.head.sha || github.sha }}
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
@@ -41,7 +45,7 @@ jobs:
       - name: Unit tests
         run: npm run test
 
-      - name: Type-check and build
+      - name: Type-check and web build
         run: npm run build
 
   tauri-check:
@@ -52,8 +56,6 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
-        with:
-          ref: ${{ github.event.pull_request.head.sha || github.sha }}
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
@@ -63,7 +65,7 @@ jobs:
       - name: Setup Rust
         uses: dtolnay/rust-toolchain@stable
 
-      - name: Install frontend dependencies
+      - name: Install dependencies
         run: npm install
 
       - name: Generate desktop icons
@@ -77,10 +79,7 @@ jobs:
 
   windows-release:
     if: >-
-      (github.event_name == 'pull_request' &&
-       github.event.pull_request.head.repo.full_name == github.repository &&
-       github.event.pull_request.head.ref == 'agent/desktop-mvp-foundation') ||
-      github.event_name == 'push' ||
+      (github.event_name == 'push' && github.ref == 'refs/heads/main') ||
       github.event_name == 'workflow_dispatch'
     needs:
       - web-build
@@ -89,10 +88,8 @@ jobs:
       contents: write
     runs-on: windows-latest
     steps:
-      - name: Checkout verified head commit
+      - name: Checkout verified commit
         uses: actions/checkout@v4
-        with:
-          ref: ${{ github.event.pull_request.head.sha || github.sha }}
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
@@ -118,8 +115,7 @@ jobs:
         working-directory: desktop
         run: npm run build
 
-      - name: Build offline NSIS EXE and publish GitHub Release
-        id: tauri
+      - name: Build NSIS EXE and publish GitHub Release
         uses: tauri-apps/tauri-action@v1
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -128,19 +124,17 @@ jobs:
           tagName: opsdesk-v__VERSION__-build.${{ github.run_number }}
           releaseName: Agnovexa OpsDesk v__VERSION__ · Build ${{ github.run_number }}
           releaseBody: |
-            Windows x64 NSIS 离线安装包。
+            Windows x64 NSIS 安装程序。
 
-            - 不包含 SSH、Shell、数据库自动执行或远程写入能力。
-            - 命令和 SQL 只能复制后由现场工程师人工执行。
-            - 非零退出码必须返回人工执行阶段，可交给所选 AI Provider 继续分析。
-            - 支持 DeepSeek、OpenAI、通义千问、Kimi、智谱 GLM、硅基流动、本地和自定义兼容接口。
-            - API Key 仅保留在当前应用运行内存中。
-            - 安装包内置 WebView2 离线安装器，适合无外网现场。
-          releaseCommitish: ${{ github.event.pull_request.head.sha || github.sha }}
+            - 不包含 SSH、SFTP、Shell、数据库自动执行或远程写入能力。
+            - 命令和 SQL 只能由现场工程师复制后人工执行。
+            - 支持 DeepSeek、OpenAI、通义千问、Kimi、智谱 GLM、硅基流动及自定义兼容接口。
+            - 安装包内置 WebView2 离线安装器。
+          releaseCommitish: ${{ github.sha }}
           releaseDraft: false
           prerelease: false
           args: --bundles nsis
-          releaseAssetNamePattern: Agnovexa-OpsDesk-Setup[ext]
+          releaseAssetNamePattern: Agnovexa-OpsDesk-Windows-x64-Setup[ext]
           uploadWorkflowArtifacts: true
-          workflowArtifactNamePattern: Agnovexa-OpsDesk-Windows-[arch]
+          workflowArtifactNamePattern: Agnovexa-OpsDesk-Windows-x64
           retryAttempts: 1

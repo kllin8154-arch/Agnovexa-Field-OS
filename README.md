@@ -1,194 +1,135 @@
-# Agnovexa Field OS
+# Agnovexa OpsDesk
 
-Agnovexa Field OS 是一款面向个人现场工程师的 Android 本地优先工作台，用于在一个应用中管理项目、任务、现场问题、服务器资产、命令手册、离线知识、日报和 AI Provider。
+[![Desktop CI](https://github.com/kllin8154-arch/Agnovexa-Field-OS/actions/workflows/desktop-web-check.yml/badge.svg?branch=main)](https://github.com/kllin8154-arch/Agnovexa-Field-OS/actions/workflows/desktop-web-check.yml)
+[![Windows EXE](https://img.shields.io/badge/Windows-x64%20EXE-0078D4?logo=windows)](https://github.com/kllin8154-arch/Agnovexa-Field-OS/releases/latest/download/Agnovexa-OpsDesk-Windows-x64-Setup.exe)
+[![Manual execution](https://img.shields.io/badge/Execution-human--only-d7ff71)](#安全边界)
 
-项目仍处于早期版本，核心数据默认保存在设备本机，不要求注册账号，也不依赖自建后端。
+**Agnovexa OpsDesk** 是面向离线现场部署、运维排障和项目知识沉淀的 Windows 桌面工作台。
 
-## 下载安装
+桌面版已经成为本仓库的主产品。现有 Android 代码仍保留在 `app/`，作为历史实现与后续轻量辅助端；桌面端源码位于 `desktop/`。
 
-[下载最新 APK](https://github.com/kllin8154-arch/Agnovexa-Field-OS/releases/latest/download/Agnovexa-Field-OS.apk)
+## 直接下载
 
-支持 Android 8.0（API 26）及以上系统。首次安装时，Android 可能要求允许浏览器或文件管理器“安装未知应用”。
+### Windows x64 安装程序
 
-当前 `v0.2.0` 是公开预览版，安装包使用 Android 调试证书签名。后续切换为正式发布证书时可能需要先卸载预览版；卸载前请先在应用内导出备份。
+[**下载最新 Agnovexa OpsDesk Windows x64 EXE**](https://github.com/kllin8154-arch/Agnovexa-Field-OS/releases/latest/download/Agnovexa-OpsDesk-Windows-x64-Setup.exe)
 
-## 主要能力
+也可以打开 [Releases 页面](https://github.com/kllin8154-arch/Agnovexa-Field-OS/releases/latest) 查看版本说明和安装包。
 
-- 项目、任务、问题、服务器、命令、知识和日报的本地 CRUD
-- Room FTS 统一检索命令、知识正文、标题和标签
-- 按项目独立保存技术栈，支持搜索、批量自定义和图标自动识别
-- 支持银河麒麟、Linux、ARM/aarch64、x86_64、Java 8/17 等完整版本描述
-- 命令风险分级、命令包整包复制和复制前确认
-- 现场问题转知识、AI 回答转命令/知识/日报
-- 手机抽屉与平板常驻侧边栏统一承载全部功能入口
-- AI 助手与 AI Provider/API Key 设置分离，减少对话页干扰
-- AI 助手直接选择已有项目，并自动聚合该项目的技术栈、服务器、任务、问题、知识与活动作为上下文
-- OpenAI-compatible Provider 配置、连接测试、普通响应与 SSE 流式对话
-- DeepSeek、通义千问、Kimi、智谱 GLM、硅基流动、OpenAI 和自定义服务预设
-- DeepSeek V4 Thinking 开关与温度参数联动，避免服务端静默忽略用户配置
-- 模型生命周期提示，包括 `qwen-turbo` 的 2026-10-10 计划停用与迁移建议
-- Android Keystore + AES-GCM 加密保存 API Key
-- 现场部署上下文与 Markdown/TXT/JSON 部署文档本地导入
-- 可选载入不含真实地址、账号或凭据的国产化离线部署示例闭环
-- 深色、浅色、跟随系统和可上传 JSON 主题
-- ZIP 备份导出、格式校验、事务恢复和恢复前快照
-- 320dp 窄屏、大字体、长项目名和长技术版本的紧凑布局适配
+> 当前为未签名预览版。Windows SmartScreen 可能显示“未知发布者”，请确认下载域名为 `github.com/kllin8154-arch/Agnovexa-Field-OS` 后再安装。
 
-## 隐私与安全边界
-
-- 业务数据保存在应用私有目录中的 Room/DataStore。
-- API Key 使用 Android Keystore 保护的 AES-GCM 主密钥加密。
-- API Key、密码和私钥不会进入 ZIP 备份。
-- App 不会直接执行 Shell 命令，只负责展示和复制。
-- 恢复备份前会完成结构与内容校验，并先创建本机快照。
-- 自定义主题解析失败时不会覆盖当前主题。
-- HTTP Provider 仅适合可信局域网；公网服务应使用 HTTPS。
-
-请勿在项目描述、部署上下文、知识正文或其他普通字段中保存密码、Token、私钥等秘密。
-
-## 技术栈
-
-- Kotlin 2.2.10
-- Jetpack Compose + Material 3
-- Hilt + MVVM + StateFlow
-- Room 2.8.4 + FTS4
-- DataStore
-- Kotlin Serialization
-- OkHttp
-- Android Keystore
-- Gradle Wrapper 9.2.1
-- Android Gradle Plugin 9.0.1
-
-## 环境要求
-
-- JDK 17
-- Android SDK 36
-- Android Studio 或命令行 Android SDK 工具
-- 最低 Android 版本：API 26
-
-首次构建前，在项目根目录创建或由 Android Studio 自动生成 `local.properties`：
-
-```properties
-sdk.dir=C\:\\Android\\Sdk
-```
-
-请根据本机实际 Android SDK 路径修改，该文件已被 `.gitignore` 排除。
-
-## 构建
-
-Windows：
-
-```powershell
-.\gradlew.bat testDebugUnitTest lintDebug assembleDebug
-```
-
-macOS/Linux：
-
-```bash
-./gradlew testDebugUnitTest lintDebug assembleDebug
-```
-
-Debug APK 输出位置：
+## 产品原则
 
 ```text
-app/build/outputs/apk/debug/app-debug.apk
+系统生成方案、命令和 SQL
+→ 工程师人工核对
+→ 工程师在目标环境人工执行
+→ 回填退出码、stdout、stderr 和现场说明
+→ 选择 AI Provider 分析报错
+→ 人工执行修订方案并验证
+→ 人工确认后沉淀知识
 ```
 
-编译 Android 仪器测试包：
+Agnovexa OpsDesk 不代替工程师操作生产环境。
 
-```powershell
-.\gradlew.bat assembleDebugAndroidTest
-```
+## 已实现能力
 
-连接设备或模拟器后运行仪器测试：
+- 项目、服务器资产和环境快照台账；
+- Shell 命令包与 SQL 执行包生成、复制、审阅和留痕；
+- 人工执行结果回填：实际命令、退出码、标准输出、错误输出和现场说明；
+- 报错脱敏、AI 分析、修订建议、验证命令和回滚建议；
+- DeepSeek、OpenAI、通义千问、Kimi、智谱 GLM、硅基流动及自定义 OpenAI-compatible 接口；
+- 内部知识库、公共待审知识库、Skill 和全文检索；
+- SQLite 本地持久化、工作区备份和 Markdown 部署报告；
+- Windows Tauri 桌面壳与 NSIS 安装包。
 
-```powershell
-.\gradlew.bat connectedDebugAndroidTest
-```
+## 安全边界
 
-## 基本使用流程
+以下能力被明确禁止：
 
-1. 在“项目”中创建现场项目，并配置项目专属技术栈。
-2. 在“运维”中登记任务、现场问题和服务器资产。
-3. 使用命令工作台检索命令或巡检命令包，人工核对后复制。
-4. 将已解决问题、部署资料或 AI 回答保存为本地知识。
-5. 在“AI 接口”添加并测试 OpenAI-compatible Provider，再到“AI 助手”选择已有项目进行问答。
-6. 在“我的”中管理主题以及导出或恢复本地备份。
+- 不连接 SSH；
+- 不启用 SFTP；
+- 不注册 Shell 或进程执行权限；
+- 不直连生产数据库；
+- 不自动执行命令或 SQL；
+- 不自动回滚；
+- 不把生产密码、Token、私钥或完整数据库连接串写入知识库；
+- 不把未经审核的外部资料升级为已验证 Skill。
+
+所有目标服务器与数据库操作都必须由现场工程师人工完成。
 
 ## AI Provider
 
-Provider 配置全部通过 App 界面完成，不需要在源码中写入密钥。Base URL 可以填写：
+Provider 配置支持：
 
-- 服务根地址
-- 以 `/v1` 结尾的兼容地址
-- 完整的 `chat/completions` 端点
+- DeepSeek；
+- OpenAI；
+- 通义千问 / DashScope；
+- Kimi / Moonshot；
+- 智谱 GLM；
+- 硅基流动；
+- 本地或自建 OpenAI-compatible 接口；
+- 自定义 Base URL、模型名称和请求参数。
 
-项目不会附带任何可用 API Key。请使用你自己的服务账号，并遵守对应服务商的条款、数据政策和调用限额。
+API Key 不应进入 Git、报告、知识条目或普通 SQLite 业务表。当前桌面版按运行时临时输入设计，后续可接入 Windows Credential Manager。
 
-DeepSeek V4 默认开启 Thinking。开启时应用不会发送官方明确不采用的 `temperature`；如需使用温度参数，可在 Provider 编辑页关闭 Thinking。模型能力采用离线核验快照，未得到官方接口文档证实的能力会明确保持为未知状态。
+## 本地开发
 
-## 自定义主题
+前置条件：
 
-主题文件为 UTF-8 JSON，颜色使用 `#RRGGBB` 或 `#RRGGBBAA`。当前 schema 版本为 `1`，需要包含以下字段：
+- Node.js 22；
+- Rust stable；
+- Windows WebView2；
+- Tauri 2 构建依赖。
 
-```json
-{
-  "schemaVersion": 1,
-  "name": "主题名称",
-  "background": "#08090B",
-  "surface": "#111317",
-  "surfaceElevated": "#181B20",
-  "primary": "#D9FF72",
-  "secondary": "#91FFD7",
-  "success": "#91FFD7",
-  "warning": "#FFCF70",
-  "danger": "#FF8C8C",
-  "textPrimary": "#F5F5EF",
-  "textSecondary": "#C1C5CE",
-  "outline": "#3A3E46"
-}
+```powershell
+cd desktop
+npm install
+npm run prepare:icons
+npm run test
+npm run build
+npm run tauri:dev
 ```
 
-即使颜色格式合法，应用仍会检查文字与背景对比度，并在必要时自动选择可读文字颜色。
+生成 Windows NSIS 安装包：
+
+```powershell
+cd desktop
+npm install
+npm run tauri:build:windows
+```
+
+安装包输出目录通常为：
+
+```text
+desktop/src-tauri/target/release/bundle/nsis/
+```
 
 ## 项目结构
 
 ```text
-app/src/main/java/com/kllin/agnovexa/fieldos/
-├── core/          # AI、备份、数据库、偏好、主题、导入和密钥存储
-├── data/          # Repository 实现
-├── di/            # Hilt 依赖注入
-├── domain/        # 领域模型、规则和 UseCase
-└── presentation/  # Compose 页面、导航和 ViewModel
+.
+├── desktop/                    # Agnovexa OpsDesk 主产品
+│   ├── src/                    # React + TypeScript 前端
+│   ├── src-tauri/              # Rust/Tauri 后端与 SQLite 迁移
+│   └── package.json
+├── app/                        # 原 Android Field OS，保留为辅助端基础
+├── docs/                       # 架构决策与设计文档
+└── .github/workflows/          # 桌面 CI 与 Windows EXE Release
 ```
 
-Room schema 位于 `app/schemas/`，数据库结构变更时必须保留历史 schema 并提供显式 Migration。
+## 技术栈
 
-## 当前限制
+- Tauri 2；
+- React 19；
+- TypeScript；
+- Vite；
+- Rust；
+- SQLite / FTS5；
+- Vitest；
+- GitHub Actions；
+- NSIS Windows Installer。
 
-- 这是早期个人版，不提供云端账号、多人协作或自动同步。
-- 服务器信息当前作为资产记录保存，不提供内置 SSH 执行。
-- AI 输出需要结合真实现场环境人工验证。
-- Release 构建尚未配置正式签名，也未启用 R8。
-- 不保证所有第三方 OpenAI-compatible 服务都具有完全一致的 SSE 和错误响应格式。
+## 当前阶段
 
-## 开源范围
-
-公开仓库只包含构建应用所需的源码、资源、测试、Room schema 和 Gradle 配置。内部开发提示词、产品规划、设计原型、技术情报、测试记录及其他研发过程资料不属于开源发布内容。
-
-## 许可证与第三方资源
-
-项目代码以 [Apache License 2.0](LICENSE) 发布。
-
-界面操作图标来自 AndroidX Compose Material Icons，遵循 Apache-2.0。随 APK 打包的技术品牌轮廓来自 [Simple Icons](https://simpleicons.org/)，版本 `16.21.0`，其图标库采用 CC0-1.0；品牌名称和标识仍可能受各自商标政策约束。本项目使用这些图标仅用于描述对应技术，不代表品牌方背书或合作关系。
-
-Android、Kotlin、Jetpack Compose、OpenAI、DeepSeek、GitHub 以及其他文中提及的名称和商标归各自权利人所有。
-
-## 贡献
-
-欢迎通过 Issue 报告可复现问题。提交代码前请确保：
-
-- 不包含 API Key、Token、密码、私钥或真实现场数据
-- 单元测试和 lint 通过
-- 数据库变更包含 Migration 和 schema
-- UI 改动检查 320dp/360dp、深浅主题和大字体
+当前版本重点验证“人工执行闭环、离线桌面工作台、多 AI Provider 和知识沉淀”。后续迭代继续完善 SQLite Repository、导入解析、版本化快照、双知识库检索和已验证 Skill 管理。

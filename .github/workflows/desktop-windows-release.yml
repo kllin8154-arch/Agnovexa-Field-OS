@@ -1,4 +1,4 @@
-name: Desktop Windows Release (Manual Fallback)
+name: Desktop Windows Release (Manual)
 
 on:
   workflow_dispatch:
@@ -14,8 +14,10 @@ jobs:
   windows-release:
     runs-on: windows-latest
     steps:
-      - name: Checkout
+      - name: Checkout main
         uses: actions/checkout@v4
+        with:
+          ref: main
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
@@ -50,11 +52,12 @@ jobs:
           tagName: opsdesk-v__VERSION__-manual.${{ github.run_number }}
           releaseName: Agnovexa OpsDesk v__VERSION__ · Manual Build ${{ github.run_number }}
           releaseBody: |
-            Windows x64 NSIS 离线安装包。所有命令与 SQL 仅供人工审核和人工执行。
+            Windows x64 NSIS 安装程序。所有命令与 SQL 仅供人工审核和人工执行。
+          releaseCommitish: main
           releaseDraft: false
           prerelease: false
           args: --bundles nsis
-          releaseAssetNamePattern: Agnovexa-OpsDesk-Setup[ext]
+          releaseAssetNamePattern: Agnovexa-OpsDesk-Windows-x64-Setup[ext]
           uploadWorkflowArtifacts: true
-          workflowArtifactNamePattern: Agnovexa-OpsDesk-Windows-[arch]
+          workflowArtifactNamePattern: Agnovexa-OpsDesk-Windows-x64
           retryAttempts: 1

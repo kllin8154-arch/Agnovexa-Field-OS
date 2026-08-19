@@ -1,19 +1,21 @@
-# Agnovexa OpsDesk Windows 下载
+# Agnovexa OpsDesk 下载
 
-## 最新版
+## Windows x64
 
-[直接下载 Agnovexa-OpsDesk-Setup.exe](https://github.com/kllin8154-arch/Agnovexa-Field-OS/releases/latest/download/Agnovexa-OpsDesk-Setup.exe)
+[**直接下载最新 EXE 安装程序**](https://github.com/kllin8154-arch/Agnovexa-Field-OS/releases/latest/download/Agnovexa-OpsDesk-Windows-x64-Setup.exe)
 
-该安装包为 Windows x64 NSIS 离线安装包，内置 WebView2 离线安装器。
+[打开最新 Release 页面](https://github.com/kllin8154-arch/Agnovexa-Field-OS/releases/latest)
+
+固定资产名：
+
+```text
+Agnovexa-OpsDesk-Windows-x64-Setup.exe
+```
+
+## 安装说明
+
+当前为未签名预览版，Windows SmartScreen 可能提示“未知发布者”。请确认下载来源是本仓库的 GitHub Release，然后选择“更多信息 → 仍要运行”。
 
 ## 安全边界
 
-- 不连接服务器；
-- 不包含 SSH、Shell 或数据库自动执行能力；
-- 命令与 SQL 只能复制后人工执行；
-- 人工回填退出码和报错后，可选择任一已配置 AI Provider 继续排查；
-- AI 只生成待审核草案，不会执行或声称已经完成操作。
-
-## Release 页面
-
-[查看全部 Agnovexa OpsDesk Release](https://github.com/kllin8154-arch/Agnovexa-Field-OS/releases)
+该安装包不包含 SSH、SFTP、Shell、远程命令执行或生产数据库直连能力。命令和 SQL 仅用于预览、复制、人工审阅和人工执行。
