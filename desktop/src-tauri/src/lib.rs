@@ -1,7 +1,11 @@
 use reqwest::{header, Client, Url};
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Map, Value};
+use std::path::Path;
+use std::process::Command;
 use std::time::Duration;
+use tauri::path::BaseDirectory;
+use tauri::Manager;
 use tauri_plugin_sql::{Migration, MigrationKind};
 
 const MAX_PROVIDER_NAME_LEN: usize = 120;
@@ -53,6 +57,153 @@ struct AiChatResponse {
     prompt_tokens: Option<u64>,
     completion_tokens: Option<u64>,
     total_tokens: Option<u64>,
+}
+
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+struct McpConnectionInfo {
+    database_path: String,
+    server_path: String,
+    database_exists: bool,
+    server_exists: bool,
+    node_version: Option<String>,
+    ready: bool,
+    read_only: bool,
+}
+
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+struct McpSelfTestResult {
+    ok: bool,
+    message: String,
+    summary: Option<Value>,
+}
+
+fn hide_command_window(command: &mut Command) {
+    #[cfg(target_os = "windows")]
+    {
+        use std::os::windows::process::CommandExt;
+        command.creation_flags(0x08000000);
+    }
+}
+
+fn read_node_version() -> Option<String> {
+    let mut command = Command::new("node");
+    command.arg("--version");
+    hide_command_window(&mut command);
+    let output = command.output().ok()?;
+    if !output.status.success() {
+        return None;
+    }
+    let version = String::from_utf8_lossy(&output.stdout).trim().to_string();
+    (!version.is_empty()).then_some(version)
+}
+
+fn node_is_supported(version: Option<&str>) -> bool {
+    let Some(version) = version else {
+        return false;
+    };
+    let Ok(parts) = version
+        .trim_start_matches('v')
+        .split('.')
+        .take(2)
+        .map(str::parse::<u32>)
+        .collect::<Result<Vec<_>, _>>()
+    else {
+        return false;
+    };
+    let Some(major) = parts.first().copied() else {
+        return false;
+    };
+    let minor = *parts.get(1).unwrap_or(&0);
+    major > 22 || (major == 22 && minor >= 13)
+}
+
+fn resolve_mcp_paths(app: &tauri::AppHandle) -> Result<(String, String), String> {
+    let database_path = app
+        .path()
+        .app_config_dir()
+        .map_err(|_| "无法定位 Agnovexa 本地数据目录。".to_string())?
+        .join("opsdesk.db");
+    let server_path = app
+        .path()
+        .resolve("mcp/agnovexa-mcp.mjs", BaseDirectory::Resource)
+        .map_err(|_| "无法定位安装包内的 MCP Server。".to_string())?;
+    Ok((
+        database_path.to_string_lossy().into_owned(),
+        server_path.to_string_lossy().into_owned(),
+    ))
+}
+
+#[tauri::command]
+fn get_mcp_connection_info(app: tauri::AppHandle) -> Result<McpConnectionInfo, String> {
+    let (database_path, server_path) = resolve_mcp_paths(&app)?;
+    let node_version = read_node_version();
+    let ready = Path::new(&database_path).is_file()
+        && Path::new(&server_path).is_file()
+        && node_is_supported(node_version.as_deref());
+    Ok(McpConnectionInfo {
+        database_exists: Path::new(&database_path).is_file(),
+        server_exists: Path::new(&server_path).is_file(),
+        database_path,
+        server_path,
+        node_version,
+        ready,
+        read_only: true,
+    })
+}
+
+#[tauri::command]
+fn test_mcp_connection(app: tauri::AppHandle) -> Result<McpSelfTestResult, String> {
+    let info = get_mcp_connection_info(app)?;
+    if !info.database_exists {
+        return Ok(McpSelfTestResult {
+            ok: false,
+            message: "本地数据库尚未创建，请先启动桌面端并完成一次初始化。".to_string(),
+            summary: None,
+        });
+    }
+    if !info.server_exists {
+        return Ok(McpSelfTestResult {
+            ok: false,
+            message: "安装包内未找到 MCP Server，请重新安装当前版本。".to_string(),
+            summary: None,
+        });
+    }
+    if !node_is_supported(info.node_version.as_deref()) {
+        return Ok(McpSelfTestResult {
+            ok: false,
+            message: "需要 Node.js 22.13 或更高版本才能启动本地 MCP Server。".to_string(),
+            summary: None,
+        });
+    }
+
+    let mut command = Command::new("node");
+    command
+        .arg(&info.server_path)
+        .arg("--self-test")
+        .env("AGNOVEXA_OPSDESK_DB", &info.database_path);
+    hide_command_window(&mut command);
+    let output = command
+        .output()
+        .map_err(|_| "无法启动 Node.js MCP 自检进程。".to_string())?;
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    if !output.status.success() {
+        let stderr = String::from_utf8_lossy(&output.stderr);
+        let detail: String = stderr.chars().take(1_000).collect();
+        return Ok(McpSelfTestResult {
+            ok: false,
+            message: format!("MCP 自检未通过：{}", detail.trim()),
+            summary: None,
+        });
+    }
+    let summary = serde_json::from_str::<Value>(stdout.trim())
+        .map_err(|_| "MCP 自检返回了无法识别的数据。".to_string())?;
+    Ok(McpSelfTestResult {
+        ok: true,
+        message: "MCP Server、Node.js 与本地 SQLite 已连通。".to_string(),
+        summary: Some(summary),
+    })
 }
 
 #[tauri::command]
@@ -168,7 +319,11 @@ fn extract_text(value: Option<&Value>) -> Option<String> {
                     _ => {}
                 }
             }
-            if texts.is_empty() { None } else { Some(texts.join("\n")) }
+            if texts.is_empty() {
+                None
+            } else {
+                Some(texts.join("\n"))
+            }
         }
         _ => None,
     }
@@ -205,11 +360,13 @@ async fn chat_completion(request: AiChatRequest) -> Result<AiChatResponse, Strin
         .map_err(|_| "无法初始化 AI HTTP 客户端。".to_string())?;
 
     let mut payload = Map::new();
-    payload.insert("model".to_string(), Value::String(request.model.trim().to_string()));
+    payload.insert(
+        "model".to_string(),
+        Value::String(request.model.trim().to_string()),
+    );
     payload.insert(
         "messages".to_string(),
-        serde_json::to_value(&request.messages)
-            .map_err(|_| "无法序列化 AI 消息。".to_string())?,
+        serde_json::to_value(&request.messages).map_err(|_| "无法序列化 AI 消息。".to_string())?,
     );
     payload.insert("stream".to_string(), Value::Bool(false));
     if let Some(temperature) = request.temperature {
@@ -225,7 +382,12 @@ async fn chat_completion(request: AiChatRequest) -> Result<AiChatResponse, Strin
         .header(header::CONTENT_TYPE, "application/json")
         .json(&payload);
 
-    if let Some(api_key) = request.api_key.as_deref().map(str::trim).filter(|key| !key.is_empty()) {
+    if let Some(api_key) = request
+        .api_key
+        .as_deref()
+        .map(str::trim)
+        .filter(|key| !key.is_empty())
+    {
         builder = builder.bearer_auth(api_key);
     }
 
@@ -254,7 +416,11 @@ async fn chat_completion(request: AiChatRequest) -> Result<AiChatResponse, Strin
 
     if !status.is_success() {
         let message = extract_error_message(&parsed, &body);
-        return Err(format!("AI Provider 返回 HTTP {}：{}", status.as_u16(), message));
+        return Err(format!(
+            "AI Provider 返回 HTTP {}：{}",
+            status.as_u16(),
+            message
+        ));
     }
 
     if parsed.is_null() {
@@ -284,9 +450,15 @@ async fn chat_completion(request: AiChatRequest) -> Result<AiChatResponse, Strin
         content,
         reasoning_content,
         request_id,
-        prompt_tokens: parsed.pointer("/usage/prompt_tokens").and_then(Value::as_u64),
-        completion_tokens: parsed.pointer("/usage/completion_tokens").and_then(Value::as_u64),
-        total_tokens: parsed.pointer("/usage/total_tokens").and_then(Value::as_u64),
+        prompt_tokens: parsed
+            .pointer("/usage/prompt_tokens")
+            .and_then(Value::as_u64),
+        completion_tokens: parsed
+            .pointer("/usage/completion_tokens")
+            .and_then(Value::as_u64),
+        total_tokens: parsed
+            .pointer("/usage/total_tokens")
+            .and_then(Value::as_u64),
     })
 }
 
@@ -313,7 +485,12 @@ pub fn run() {
                 .add_migrations("sqlite:opsdesk.db", migrations)
                 .build(),
         )
-        .invoke_handler(tauri::generate_handler![get_runtime_policy, chat_completion])
+        .invoke_handler(tauri::generate_handler![
+            get_runtime_policy,
+            chat_completion,
+            get_mcp_connection_info,
+            test_mcp_connection
+        ])
         .run(tauri::generate_context!())
         .expect("failed to run Agnovexa OpsDesk");
 }
@@ -344,5 +521,14 @@ mod tests {
     fn extracts_structured_provider_error() {
         let payload = json!({"error": {"message": "invalid model"}});
         assert_eq!(extract_error_message(&payload, "fallback"), "invalid model");
+    }
+
+    #[test]
+    fn accepts_supported_node_version() {
+        assert!(!node_is_supported(Some("v22.12.0")));
+        assert!(node_is_supported(Some("v22.13.0")));
+        assert!(node_is_supported(Some("v24.1.0")));
+        assert!(!node_is_supported(Some("v20.18.0")));
+        assert!(!node_is_supported(None));
     }
 }

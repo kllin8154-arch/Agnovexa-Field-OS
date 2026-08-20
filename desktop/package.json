@@ -5,14 +5,19 @@
   "type": "module",
   "scripts": {
     "dev": "vite --host 127.0.0.1 --port 1420",
+    "dev:desktop": "npm run mcp:build && npm run dev",
     "build": "tsc --noEmit -p tsconfig.json && tsc --noEmit -p tsconfig.node.json && vite build",
+    "build:desktop": "npm run build && npm run mcp:build",
+    "mcp:build": "tsc -p mcp/tsconfig.json && esbuild mcp/src/index.ts --bundle --platform=node --format=esm --target=node22 --outfile=mcp/dist/agnovexa-mcp.mjs --external:node:*",
+    "mcp:start": "npm run mcp:build && node mcp/dist/agnovexa-mcp.mjs",
+    "mcp:test": "npm run mcp:build && node --test mcp/test/*.test.mjs",
     "preview": "vite preview --host 127.0.0.1 --port 4173",
     "tauri": "tauri",
     "prepare:icons": "tauri icon app-icon.svg --output src-tauri/icons",
     "tauri:dev": "npm run prepare:icons && tauri dev",
     "tauri:build:windows": "npm run prepare:icons && tauri build --bundles nsis",
     "test": "vitest run",
-    "check": "npm run test && npm run build"
+    "check": "npm run test && npm run build:desktop && npm run mcp:test"
   },
   "dependencies": {
     "@tauri-apps/api": "^2.0.0",
@@ -22,13 +27,17 @@
     "react-router-dom": "7.18.2"
   },
   "devDependencies": {
+    "@modelcontextprotocol/client": "2.0.0",
+    "@modelcontextprotocol/server": "2.0.0",
     "@tauri-apps/cli": "^2.0.0",
     "@types/node": "^22.0.0",
     "@types/react": "^19.0.0",
     "@types/react-dom": "^19.0.0",
     "@vitejs/plugin-react": "^5.0.0",
+    "esbuild": "0.25.12",
     "typescript": "^5.8.0",
     "vite": "^7.0.0",
-    "vitest": "^3.2.0"
+    "vitest": "^3.2.0",
+    "zod": "4.4.3"
   }
 }

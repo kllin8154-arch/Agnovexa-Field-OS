@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { deploymentTemplates } from "../data/mock";
 import { Notice, Panel } from "../components/Ui";
+import { buildDeploymentExecutionDraft } from "../lib/deploymentDraft";
 import {
   createDeploymentTask,
   isDesktopRuntime,
@@ -61,6 +62,16 @@ export function DeploymentPage() {
     setSaving(true);
     setStatus(null);
     try {
+      const acceptanceCriteria = acceptance.split("\n").map((item) => item.trim()).filter(Boolean);
+      const executionDraft = buildDeploymentExecutionDraft({
+        templateId: selectedTemplate.id,
+        asset: selectedAsset,
+        offlineMedia: media,
+        targetDirectories,
+        acceptanceCriteria,
+        rollbackRequirements: rollback,
+        requiredInputs: selectedTemplate.requiredInputs,
+      });
       await createDeploymentTask({
         projectId: selectedAsset.projectId,
         assetId: selectedAsset.id,
@@ -75,10 +86,11 @@ export function DeploymentPage() {
           targetDirectories: targetDirectories.trim(),
           requiredInputs: selectedTemplate.requiredInputs,
         },
-        acceptanceCriteria: acceptance.split("\n").map((item) => item.trim()).filter(Boolean),
+        acceptanceCriteria,
         rollbackRequirements: rollback,
+        executionDraft,
       });
-      setStatus({ tone: "success", title: "任务创建好了", message: "任务已保存在本机。下一步可以补充执行方案并进行人工确认。" });
+      setStatus({ tone: "success", title: "任务和执行草案已创建", message: "现在进入“执行与变更”即可看到这项任务，核对命令、验证和回滚后再人工执行。" });
       setSelectedTemplateId("");
       setTitle("");
       setMedia("");

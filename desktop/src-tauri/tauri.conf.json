@@ -4,8 +4,8 @@
   "version": "0.4.0",
   "identifier": "com.kllin.agnovexa.opsdesk",
   "build": {
-    "beforeDevCommand": "npm run dev",
-    "beforeBuildCommand": "npm run build",
+    "beforeDevCommand": "npm run dev:desktop",
+    "beforeBuildCommand": "npm run build:desktop",
     "devUrl": "http://localhost:1420",
     "frontendDist": "../dist"
   },
@@ -36,6 +36,9 @@
   },
   "bundle": {
     "active": true,
+    "resources": {
+      "../mcp/dist/agnovexa-mcp.mjs": "mcp/agnovexa-mcp.mjs"
+    },
     "targets": [
       "nsis"
     ],

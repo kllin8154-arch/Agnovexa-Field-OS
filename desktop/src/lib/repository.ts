@@ -1,4 +1,5 @@
 import Database from "@tauri-apps/plugin-sql";
+import { buildDeploymentExecutionDraft, type DeploymentExecutionDraft } from "./deploymentDraft";
 
 const DATABASE_URL = "sqlite:opsdesk.db";
 let databasePromise: Promise<Database> | null = null;
@@ -547,30 +548,82 @@ export async function createDeploymentTask(input: {
   targetDefinition: Record<string, unknown>;
   acceptanceCriteria: string[];
   rollbackRequirements: string;
+  executionDraft: {
+    objective: string;
+    commands: string;
+    expectedResult: string;
+    validationCommands: string;
+    rollbackCommands: string;
+    missingFacts: string[];
+  };
 }): Promise<string> {
   if (!input.projectId || !input.assetId) throw new Error("请选择项目和目标资产。");
   if (input.title.trim().length < 4) throw new Error("任务标题至少需要 4 个字符。");
   const db = await getDatabase();
   const id = makeId("task");
-  await db.execute(
-    `INSERT INTO deployment_tasks (
-       id, project_id, asset_id, title, task_type, environment,
-       workflow_phase, risk_level, target_definition_json,
-       acceptance_criteria_json, rollback_requirements, status
-     ) VALUES ($1, $2, $3, $4, $5, $6, 'DEFINE', $7, $8, $9, $10, 'in_progress')`,
-    [
-      id,
-      input.projectId,
-      input.assetId,
-      input.title.trim(),
-      input.taskType.trim() || "manual-deployment",
-      input.environment,
-      input.riskLevel,
-      JSON.stringify(input.targetDefinition),
-      JSON.stringify(input.acceptanceCriteria),
-      input.rollbackRequirements.trim(),
-    ],
-  );
+  const planId = makeId("plan");
+  const stepId = makeId("step");
+  await db.execute("BEGIN IMMEDIATE");
+  try {
+    await db.execute(
+      `INSERT INTO deployment_tasks (
+         id, project_id, asset_id, title, task_type, environment,
+         workflow_phase, risk_level, target_definition_json,
+         acceptance_criteria_json, rollback_requirements, status
+       ) VALUES ($1, $2, $3, $4, $5, $6, 'PLAN', $7, $8, $9, $10, 'in_progress')`,
+      [
+        id,
+        input.projectId,
+        input.assetId,
+        input.title.trim(),
+        input.taskType.trim() || "manual-deployment",
+        input.environment,
+        input.riskLevel,
+        JSON.stringify(input.targetDefinition),
+        JSON.stringify(input.acceptanceCriteria),
+        input.executionDraft.rollbackCommands,
+      ],
+    );
+    await db.execute(
+      `INSERT INTO change_plans (
+         id, deployment_task_id, title, objective, risk_level,
+         missing_facts_json, verification_plan, rollback_plan, approval_required
+       ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, 1)`,
+      [
+        planId,
+        id,
+        input.title.trim(),
+        input.executionDraft.objective,
+        input.riskLevel,
+        JSON.stringify(input.executionDraft.missingFacts),
+        input.executionDraft.validationCommands,
+        input.executionDraft.rollbackCommands,
+      ],
+    );
+    await db.execute(
+      `INSERT INTO change_steps (
+         id, change_plan_id, step_order, objective, prerequisites_json,
+         risk_level, command_preview, expected_result, evidence_required_json,
+         validation_commands, rollback_commands, network_required
+       ) VALUES ($1, $2, 1, $3, $4, $5, $6, $7, $8, $9, $10, 0)`,
+      [
+        stepId,
+        planId,
+        input.executionDraft.objective,
+        JSON.stringify(input.executionDraft.missingFacts),
+        input.riskLevel,
+        input.executionDraft.commands,
+        input.executionDraft.expectedResult,
+        JSON.stringify(["实际执行命令（脱敏）", "退出码", "stdout / stderr（脱敏）", "人工验证结果"]),
+        input.executionDraft.validationCommands,
+        input.executionDraft.rollbackCommands,
+      ],
+    );
+    await db.execute("COMMIT");
+  } catch (error) {
+    await db.execute("ROLLBACK");
+    throw error;
+  }
   return id;
 }
 
@@ -590,23 +643,24 @@ export interface ManualPackageRecord {
   validationCommands: string;
   rollbackCommands: string;
   createdAt: string;
+  ready: boolean;
 }
 
 interface ManualPackageRow {
   task_id: string;
   project_id: string;
-  plan_id: string;
-  step_id: string;
+  plan_id: string | null;
+  step_id: string | null;
   title: string;
   project_name: string;
   asset_name: string;
   workflow_phase: string;
   risk_level: string;
-  objective: string;
-  command_preview: string;
-  expected_result: string;
-  validation_commands: string;
-  rollback_commands: string;
+  objective: string | null;
+  command_preview: string | null;
+  expected_result: string | null;
+  validation_commands: string | null;
+  rollback_commands: string | null;
   created_at: string;
 }
 
@@ -615,32 +669,155 @@ export async function listManualPackages(): Promise<ManualPackageRecord[]> {
   const rows = await db.select<ManualPackageRow[]>(
     `SELECT t.id AS task_id, t.project_id, cp.id AS plan_id, cs.id AS step_id, t.title,
             p.name AS project_name, a.name AS asset_name, t.workflow_phase,
-            cp.risk_level, cs.objective, cs.command_preview, cs.expected_result,
+            COALESCE(cp.risk_level, t.risk_level) AS risk_level,
+            cs.objective, cs.command_preview, cs.expected_result,
             cs.validation_commands, cs.rollback_commands, t.created_at
      FROM deployment_tasks t
      JOIN projects p ON p.id = t.project_id
      JOIN assets a ON a.id = t.asset_id
-     JOIN change_plans cp ON cp.deployment_task_id = t.id
-     JOIN change_steps cs ON cs.change_plan_id = cp.id AND cs.step_order = 1
+     LEFT JOIN change_plans cp ON cp.id = (
+       SELECT id FROM change_plans WHERE deployment_task_id = t.id ORDER BY created_at DESC LIMIT 1
+     )
+     LEFT JOIN change_steps cs ON cs.change_plan_id = cp.id AND cs.step_order = 1
      ORDER BY t.updated_at DESC`,
   );
   return rows.map((row) => ({
     taskId: row.task_id,
     projectId: row.project_id,
-    planId: row.plan_id,
-    stepId: row.step_id,
+    planId: row.plan_id ?? "",
+    stepId: row.step_id ?? "",
     title: row.title,
     projectName: row.project_name,
     assetName: row.asset_name,
     phase: row.workflow_phase,
     riskLevel: row.risk_level,
-    objective: row.objective,
-    commands: row.command_preview,
-    expectedResult: row.expected_result,
-    validationCommands: row.validation_commands,
-    rollbackCommands: row.rollback_commands,
+    objective: row.objective ?? "尚未生成执行草案",
+    commands: row.command_preview ?? "",
+    expectedResult: row.expected_result ?? "",
+    validationCommands: row.validation_commands ?? "",
+    rollbackCommands: row.rollback_commands ?? "",
     createdAt: row.created_at,
+    ready: Boolean(row.plan_id && row.step_id),
   }));
+}
+
+interface OrphanDeploymentTaskRow {
+  id: string;
+  title: string;
+  task_type: string;
+  risk_level: "LOW" | "MEDIUM" | "HIGH" | "CRITICAL";
+  target_definition_json: string;
+  acceptance_criteria_json: string;
+  rollback_requirements: string;
+  asset_name: string;
+  host: string;
+  operating_system: string;
+  architecture: string;
+}
+
+function readDraftTarget(value: string): Record<string, unknown> {
+  try {
+    const parsed = JSON.parse(value) as unknown;
+    return parsed && typeof parsed === "object" && !Array.isArray(parsed) ? parsed as Record<string, unknown> : {};
+  } catch {
+    return {};
+  }
+}
+
+function targetText(target: Record<string, unknown>, key: string): string {
+  return typeof target[key] === "string" ? String(target[key]) : "";
+}
+
+function targetList(target: Record<string, unknown>, key: string): string[] {
+  const value = target[key];
+  return Array.isArray(value) ? value.filter((item): item is string => typeof item === "string") : [];
+}
+
+async function insertDeploymentDraft(
+  db: Database,
+  task: Pick<OrphanDeploymentTaskRow, "id" | "title" | "risk_level">,
+  draft: DeploymentExecutionDraft,
+  existingPlanId?: string,
+): Promise<void> {
+  const planId = existingPlanId || makeId("plan");
+  const stepId = makeId("step");
+  if (!existingPlanId) {
+    await db.execute(
+      `INSERT INTO change_plans (
+         id, deployment_task_id, title, objective, risk_level,
+         missing_facts_json, verification_plan, rollback_plan, approval_required
+       ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, 1)`,
+      [planId, task.id, task.title, draft.objective, task.risk_level, JSON.stringify(draft.missingFacts), draft.validationCommands, draft.rollbackCommands],
+    );
+  }
+  await db.execute(
+    `INSERT INTO change_steps (
+       id, change_plan_id, step_order, objective, prerequisites_json,
+       risk_level, command_preview, expected_result, evidence_required_json,
+       validation_commands, rollback_commands, network_required
+     ) VALUES ($1, $2, 1, $3, $4, $5, $6, $7, $8, $9, $10, 0)`,
+    [stepId, planId, draft.objective, JSON.stringify(draft.missingFacts), task.risk_level, draft.commands, draft.expectedResult, JSON.stringify(["实际执行命令（脱敏）", "退出码", "stdout / stderr（脱敏）", "人工验证结果"]), draft.validationCommands, draft.rollbackCommands],
+  );
+  await db.execute(
+    "UPDATE deployment_tasks SET workflow_phase = 'PLAN', status = 'in_progress', updated_at = CURRENT_TIMESTAMP WHERE id = $1",
+    [task.id],
+  );
+}
+
+export async function repairDeploymentTaskDraft(taskId: string): Promise<boolean> {
+  const db = await getDatabase();
+  const rows = await db.select<OrphanDeploymentTaskRow[]>(
+    `SELECT t.id, t.title, t.task_type, t.risk_level, t.target_definition_json,
+            t.acceptance_criteria_json, t.rollback_requirements,
+            a.name AS asset_name, a.host, a.operating_system, a.architecture
+     FROM deployment_tasks t
+     JOIN assets a ON a.id = t.asset_id
+     WHERE t.id = $1
+     LIMIT 1`,
+    [taskId],
+  );
+  const task = rows[0];
+  if (!task) throw new Error("没有找到这项部署任务。");
+  const target = readDraftTarget(task.target_definition_json);
+  const templateId = targetText(target, "templateId") || task.task_type;
+  const draft = buildDeploymentExecutionDraft({
+    templateId,
+    asset: {
+      name: task.asset_name,
+      host: task.host,
+      operatingSystem: task.operating_system,
+      architecture: task.architecture,
+    },
+    offlineMedia: targetText(target, "offlineMedia"),
+    targetDirectories: targetText(target, "targetDirectories"),
+    acceptanceCriteria: parseJsonArray(task.acceptance_criteria_json),
+    rollbackRequirements: task.rollback_requirements,
+    requiredInputs: targetList(target, "requiredInputs"),
+  });
+
+  await db.execute("BEGIN IMMEDIATE");
+  try {
+    const existingPlans = await db.select<Array<{ id: string; step_count: number }>>(
+      `SELECT cp.id, COUNT(cs.id) AS step_count
+       FROM change_plans cp
+       LEFT JOIN change_steps cs ON cs.change_plan_id = cp.id
+       WHERE cp.deployment_task_id = $1
+       GROUP BY cp.id
+       ORDER BY cp.created_at DESC`,
+      [task.id],
+    );
+    const incompletePlan = existingPlans.find((item) => Number(item.step_count) === 0);
+    if (existingPlans.length > 0 && !incompletePlan) {
+      await db.execute("ROLLBACK");
+      return false;
+    }
+    await insertDeploymentDraft(db, task, draft, incompletePlan?.id);
+    await db.execute("COMMIT");
+    return true;
+  } catch (error) {
+    await db.execute("ROLLBACK");
+    throw error;
+  }
 }
 
 export async function createManualPackage(input: {

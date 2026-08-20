@@ -53,6 +53,10 @@ jobs:
         working-directory: desktop
         run: npm run build
 
+      - name: Test local MCP protocol integration
+        working-directory: desktop
+        run: npm run mcp:test
+
       - name: Test Tauri backend with lockfile
         working-directory: desktop
         run: cargo test --locked --quiet --manifest-path src-tauri/Cargo.toml --lib
@@ -75,6 +79,7 @@ jobs:
             - 所有命令与 SQL 仅供人工审核和人工执行。
             - 包含可校验备份恢复、部署报告、Skill 专库和双知识库可信发布。
             - API Key 不进入 SQLite、备份、报告、知识库或 Git。
+            - 内置只读 stdio MCP Server，可查询项目上下文并诊断工作流断点；不提供远程执行或写入工具。
             - 使用已提交的 npm 与 Cargo 锁文件完成可重复构建。
           releaseCommitish: main
           releaseDraft: false

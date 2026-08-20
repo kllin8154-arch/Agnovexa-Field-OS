@@ -57,6 +57,9 @@ jobs:
       - name: Type-check and web build
         run: npm run build
 
+      - name: Test local MCP protocol integration
+        run: npm run mcp:test
+
       - name: Render light and dark UI smoke screenshots
         shell: bash
         run: |
@@ -141,6 +144,9 @@ jobs:
       - name: Generate desktop icons from SVG
         run: npm run prepare:icons
 
+      - name: Build bundled MCP Server
+        run: npm run mcp:build
+
       - name: Test Tauri backend with lockfile
         run: cargo test --locked --quiet --manifest-path src-tauri/Cargo.toml --lib
 
@@ -193,6 +199,10 @@ jobs:
         working-directory: desktop
         run: npm run build
 
+      - name: Test local MCP protocol integration
+        working-directory: desktop
+        run: npm run mcp:test
+
       - name: Build NSIS EXE and publish GitHub Release
         uses: tauri-apps/tauri-action@v1
         env:
@@ -210,6 +220,7 @@ jobs:
             - 包含四层人工验收中心、关单门禁、可校验备份恢复、部署报告、Skill 专库和双知识库可信发布。
             - 验收证据和关单记录写入本地审计库，并进入工作区备份。
             - API Key 不进入 SQLite、工作区备份、报告或 Git。
+            - 内置只读 stdio MCP Server，可查询项目上下文并诊断工作流断点；不提供远程执行或写入工具。
             - 使用已提交的 npm 与 Cargo 锁文件完成可重复构建。
             - 安装包内置 WebView2 离线安装器。
           releaseCommitish: ${{ github.sha }}

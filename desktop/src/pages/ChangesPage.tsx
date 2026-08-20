@@ -9,6 +9,7 @@ import {
   listAssets,
   listManualPackages,
   recordManualExecutionEvidence,
+  repairDeploymentTaskDraft,
   type AssetRecord,
   type ManualPackageRecord,
 } from "../lib/repository";
@@ -112,6 +113,22 @@ export function ChangesPage() {
     }
   };
 
+  const repairDraft = async () => {
+    if (!selected) return;
+    try {
+      const repaired = await repairDeploymentTaskDraft(selected.taskId);
+      setStatus({
+        tone: "success",
+        title: repaired ? "执行草案已补齐" : "执行草案已经存在",
+        message: "现在可以直接核对命令、验证和回滚，不需要重新创建任务。",
+      });
+      await load();
+      setSelectedTaskId(selected.taskId);
+    } catch (error) {
+      setStatus({ tone: "danger", title: "旧任务修复失败", message: error instanceof Error ? error.message : String(error) });
+    }
+  };
+
   const approve = async () => {
     if (!selected) return;
     if (!reviewed) {
@@ -210,7 +227,7 @@ export function ChangesPage() {
             {packages.map((item) => (
               <button key={item.taskId} type="button" className={`package-selector${selected?.taskId === item.taskId ? " active" : ""}`} onClick={() => setSelectedTaskId(item.taskId)}>
                 <div><strong>{item.title}</strong><span>{item.projectName} · {item.assetName}</span></div>
-                <Tag>{item.phase}</Tag>
+                <Tag>{item.ready ? item.phase : "待生成草案"}</Tag>
               </button>
             ))}
           </div>
@@ -223,30 +240,39 @@ export function ChangesPage() {
             <div className="change-header-grid"><div><span>项目</span><strong>{selected.projectName}</strong></div><div><span>目标资产</span><strong>{selected.assetName}</strong></div><div><span>目标</span><strong>{selected.objective}</strong></div><div><span>执行方式</span><strong>工程师人工执行</strong></div></div>
           </Panel>
 
-          <Panel eyebrow="COMMAND / SQL PACKAGE" title="待人工执行内容">
-            <CodeBlock value={selected.commands} label="待人工执行 · 不会自动运行" />
-            <div className="two-column-grid compact-grid"><CodeBlock value={selected.validationCommands} label="独立验证命令 / 步骤" /><CodeBlock value={selected.rollbackCommands} label="回滚命令 / 说明" /></div>
-          </Panel>
+          {selected.ready ? (
+            <>
+              <Panel eyebrow="COMMAND / SQL PACKAGE" title="待人工执行内容">
+                <CodeBlock value={selected.commands} label="待人工执行 · 不会自动运行" />
+                <div className="two-column-grid compact-grid"><CodeBlock value={selected.validationCommands} label="独立验证命令 / 步骤" /><CodeBlock value={selected.rollbackCommands} label="回滚命令 / 说明" /></div>
+              </Panel>
 
-          <Panel eyebrow="APPROVAL AND EVIDENCE" title="人工审阅与现场证据">
-            {selected.phase === "PLAN" ? (
-              <div className="approval-box">
-                <label><span className="field-label">审阅人员</span><input className="text-input" value={reviewer} onChange={(event) => setReviewer(event.target.value)} placeholder="姓名或工号" /></label>
-                <label className="approval-check"><input type="checkbox" checked={reviewed} onChange={(event) => setReviewed(event.target.checked)} /><span>我已核对目标资产、命令/SQL、预期结果、验证方式和回滚条件；内容与现场环境事实一致。</span></label>
-                <div className="inline-actions end"><button className="primary-button" type="button" disabled={!reviewed || reviewer.trim().length < 2} onClick={() => void approve()}>记录审阅并进入人工执行等待</button></div>
-              </div>
-            ) : (
-              <div className="evidence-form">
-                <div className="two-column-grid compact-grid"><label><span className="field-label">执行人员</span><input className="text-input" value={executor} onChange={(event) => setExecutor(event.target.value)} placeholder="姓名或工号" /></label><label><span className="field-label">退出码</span><input className="text-input" value={exitCode} onChange={(event) => setExitCode(event.target.value)} placeholder="0、1、127…" /></label></div>
-                <label><span className="field-label">实际执行命令 / SQL</span><textarea className="evidence-input command-input" value={actualCommand} onChange={(event) => setActualCommand(event.target.value)} /></label>
-                <div className="two-column-grid compact-grid"><label><span className="field-label">stdout</span><textarea className="evidence-input medium" value={stdout} onChange={(event) => setStdout(event.target.value)} /></label><label><span className="field-label">stderr / 报错</span><textarea className="evidence-input medium" value={stderr} onChange={(event) => setStderr(event.target.value)} /></label></div>
-                <label><span className="field-label">人工已做操作</span><textarea className="evidence-input small" value={humanActions} onChange={(event) => setHumanActions(event.target.value)} placeholder="记录绕行方案、额外检查和实际修改。" /></label>
-                {evidenceRedacted.total > 0 && <Notice tone="warning" title={`检测到 ${evidenceRedacted.total} 处敏感信息`}>保存和发送给 AI 时使用脱敏副本；当前输入框中的原始文本不会进入知识库。</Notice>}
-                {executionFailed && <Notice tone="danger" title="当前执行失败，不能进入验证">保存失败证据后任务仍停留在 MANUAL_EXECUTE，可继续交给 AI 排错，但 AI 仍不会执行修复命令。</Notice>}
-                <div className="inline-actions end">{executionFailed && <button className="secondary-button" type="button" onClick={sendFailureToAi}>将报错上下文交给 AI</button>}<button className="primary-button" type="button" disabled={executor.trim().length < 2 || exitCode.trim() === ""} onClick={() => void submitEvidence()}>保存人工执行证据</button></div>
-              </div>
-            )}
-          </Panel>
+              <Panel eyebrow="APPROVAL AND EVIDENCE" title="人工审阅与现场证据">
+                {selected.phase === "PLAN" ? (
+                  <div className="approval-box">
+                    <label><span className="field-label">审阅人员</span><input className="text-input" value={reviewer} onChange={(event) => setReviewer(event.target.value)} placeholder="姓名或工号" /></label>
+                    <label className="approval-check"><input type="checkbox" checked={reviewed} onChange={(event) => setReviewed(event.target.checked)} /><span>我已核对目标资产、命令/SQL、预期结果、验证方式和回滚条件；内容与现场环境事实一致。</span></label>
+                    <div className="inline-actions end"><button className="primary-button" type="button" disabled={!reviewed || reviewer.trim().length < 2} onClick={() => void approve()}>记录审阅并进入人工执行等待</button></div>
+                  </div>
+                ) : (
+                  <div className="evidence-form">
+                    <div className="two-column-grid compact-grid"><label><span className="field-label">执行人员</span><input className="text-input" value={executor} onChange={(event) => setExecutor(event.target.value)} placeholder="姓名或工号" /></label><label><span className="field-label">退出码</span><input className="text-input" value={exitCode} onChange={(event) => setExitCode(event.target.value)} placeholder="0、1、127…" /></label></div>
+                    <label><span className="field-label">实际执行命令 / SQL</span><textarea className="evidence-input command-input" value={actualCommand} onChange={(event) => setActualCommand(event.target.value)} /></label>
+                    <div className="two-column-grid compact-grid"><label><span className="field-label">stdout</span><textarea className="evidence-input medium" value={stdout} onChange={(event) => setStdout(event.target.value)} /></label><label><span className="field-label">stderr / 报错</span><textarea className="evidence-input medium" value={stderr} onChange={(event) => setStderr(event.target.value)} /></label></div>
+                    <label><span className="field-label">人工已做操作</span><textarea className="evidence-input small" value={humanActions} onChange={(event) => setHumanActions(event.target.value)} placeholder="记录绕行方案、额外检查和实际修改。" /></label>
+                    {evidenceRedacted.total > 0 && <Notice tone="warning" title={`检测到 ${evidenceRedacted.total} 处敏感信息`}>保存和发送给 AI 时使用脱敏副本；当前输入框中的原始文本不会进入知识库。</Notice>}
+                    {executionFailed && <Notice tone="danger" title="当前执行失败，不能进入验证">保存失败证据后任务仍停留在 MANUAL_EXECUTE，可继续交给 AI 排错，但 AI 仍不会执行修复命令。</Notice>}
+                    <div className="inline-actions end">{executionFailed && <button className="secondary-button" type="button" onClick={sendFailureToAi}>将报错上下文交给 AI</button>}<button className="primary-button" type="button" disabled={executor.trim().length < 2 || exitCode.trim() === ""} onClick={() => void submitEvidence()}>保存人工执行证据</button></div>
+                  </div>
+                )}
+              </Panel>
+            </>
+          ) : (
+            <Panel eyebrow="LEGACY TASK REPAIR" title="这项旧任务缺少执行草案">
+              <div className="simple-form-intro"><strong>不用重新创建，也不用自己填写大表单</strong><p>这是旧版本留下的空任务。系统可以根据原来的模板、服务器和项目资料自动补齐命令、验证与回滚草案。</p></div>
+              <div className="simple-form-actions"><span>生成后仍需人工核对，系统不会连接服务器。</span><button className="primary-button" type="button" onClick={() => void repairDraft()}>自动补齐执行草案</button></div>
+            </Panel>
+          )}
         </>
       )}
     </div>

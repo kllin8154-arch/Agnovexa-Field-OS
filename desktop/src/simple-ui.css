@@ -1506,6 +1506,220 @@ label > span small {
   }
 }
 
+.mcp-intro,
+.mcp-config-actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 24px;
+}
+
+.mcp-intro p {
+  max-width: 860px;
+  margin: 0 0 12px;
+  color: var(--muted);
+  line-height: 1.7;
+}
+
+.mcp-safety-line {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--success);
+  font-weight: 650;
+}
+
+.mcp-status-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 10px;
+  margin-top: 24px;
+}
+
+.mcp-status-grid > div {
+  min-width: 0;
+  padding: 16px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--surface-2);
+}
+
+.mcp-status-grid span,
+.mcp-status-grid small {
+  display: block;
+  color: var(--muted);
+}
+
+.mcp-status-grid strong {
+  display: block;
+  margin: 6px 0;
+  font-size: 17px;
+}
+
+.mcp-status-grid small {
+  overflow: hidden;
+  font-size: 11px;
+  line-height: 1.5;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.mcp-main-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.55fr) minmax(280px, .75fr);
+  align-items: stretch;
+  gap: 16px;
+}
+
+.mcp-main-grid > .panel {
+  margin: 0;
+}
+
+.mcp-client-tabs {
+  display: flex;
+  gap: 6px;
+  margin-bottom: 14px;
+}
+
+.mcp-client-tabs button {
+  min-height: 38px;
+  padding: 0 14px;
+  border: 1px solid var(--line);
+  border-radius: 9px;
+  color: var(--muted);
+  background: var(--surface-2);
+  cursor: pointer;
+}
+
+.mcp-client-tabs button.active {
+  border-color: var(--accent);
+  color: var(--accent-strong);
+  background: var(--accent-soft);
+}
+
+.mcp-config-actions {
+  align-items: flex-start;
+  margin-top: 14px;
+}
+
+.mcp-config-actions span {
+  max-width: 560px;
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.6;
+}
+
+.mcp-steps {
+  display: grid;
+  gap: 18px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.mcp-steps li {
+  display: grid;
+  grid-template-columns: 34px minmax(0, 1fr);
+  gap: 12px;
+}
+
+.mcp-steps li > span {
+  display: grid;
+  width: 34px;
+  height: 34px;
+  place-items: center;
+  border-radius: 50%;
+  color: var(--on-accent);
+  background: var(--accent);
+  font-weight: 750;
+}
+
+.mcp-steps strong,
+.mcp-steps p {
+  display: block;
+}
+
+.mcp-steps p {
+  margin: 4px 0 0;
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.55;
+}
+
+.mcp-tool-list {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.mcp-tool-list > div {
+  min-width: 0;
+  padding: 13px 14px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--surface-2);
+}
+
+.mcp-tool-list code,
+.mcp-tool-list span {
+  display: block;
+}
+
+.mcp-tool-list code {
+  overflow: hidden;
+  color: var(--accent-strong);
+  font-size: 12px;
+  font-weight: 700;
+  text-overflow: ellipsis;
+}
+
+.mcp-tool-list span {
+  margin-top: 5px;
+  color: var(--muted);
+  font-size: 11px;
+  line-height: 1.5;
+}
+
+@media (max-width: 1180px) {
+  .mcp-status-grid,
+  .mcp-tool-list {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .mcp-main-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 900px) {
+  .mcp-intro {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .mcp-intro .primary-button {
+    width: 100%;
+  }
+}
+
+@media (max-width: 760px) {
+  .mcp-intro,
+  .mcp-config-actions {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .mcp-status-grid,
+  .mcp-tool-list {
+    grid-template-columns: 1fr;
+  }
+
+  .mcp-client-tabs {
+    display: grid;
+    grid-template-columns: 1fr;
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   .simple-shell *,
   .simple-shell *::before,

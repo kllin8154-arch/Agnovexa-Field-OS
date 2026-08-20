@@ -9,6 +9,7 @@ import { DashboardPage } from "./pages/DashboardPage";
 import { DeploymentPage } from "./pages/DeploymentPage";
 import { DiagnosticsPage } from "./pages/DiagnosticsPage";
 import { KnowledgePage } from "./pages/KnowledgePage";
+import { McpAccessPage } from "./pages/McpAccessPage";
 import { ProjectsPage } from "./pages/ProjectsPage";
 import { SettingsPage } from "./pages/SettingsPage";
 import { SkillsPage } from "./pages/SkillsPage";
@@ -43,6 +44,7 @@ export default function App() {
           <Route path="ai-settings" element={<AiProviderSettingsPage />} />
           <Route path="skills" element={<SkillsPage />} />
           <Route path="knowledge" element={<KnowledgePage />} />
+          <Route path="mcp" element={<McpAccessPage />} />
           <Route path="archive" element={<ArchivePage />} />
           <Route path="settings" element={<SettingsPage />} />
           <Route path="*" element={<NotFoundPage />} />

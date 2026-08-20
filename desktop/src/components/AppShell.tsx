@@ -18,6 +18,7 @@ type IconName =
   | "knowledge"
   | "archive"
   | "providers"
+  | "mcp"
   | "settings"
   | "menu"
   | "sun"
@@ -51,6 +52,7 @@ function Icon({ name, ...props }: SVGProps<SVGSVGElement> & { name: IconName }) 
     knowledge: <><path d="M4 5.5A2.5 2.5 0 0 1 6.5 3H11v16H6.5A2.5 2.5 0 0 0 4 21.5z" /><path d="M20 5.5A2.5 2.5 0 0 0 17.5 3H13v16h4.5A2.5 2.5 0 0 1 20 21.5z" /></>,
     archive: <><path d="M4 7h16v13H4z" /><path d="M3 3h18v4H3zM9 11h6" /></>,
     providers: <><circle cx="12" cy="12" r="3" /><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.9l.1.1-2.8 2.8-.1-.1a1.7 1.7 0 0 0-1.9-.3 1.7 1.7 0 0 0-1 1.6v.2h-4V21a1.7 1.7 0 0 0-1-1.6 1.7 1.7 0 0 0-1.9.3l-.1.1L4.2 17l.1-.1A1.7 1.7 0 0 0 4.6 15 1.7 1.7 0 0 0 3 14H2.8v-4H3a1.7 1.7 0 0 0 1.6-1 1.7 1.7 0 0 0-.3-1.9L4.2 7 7 4.2l.1.1a1.7 1.7 0 0 0 1.9.3A1.7 1.7 0 0 0 10 3V2.8h4V3a1.7 1.7 0 0 0 1 1.6 1.7 1.7 0 0 0 1.9-.3l.1-.1L19.8 7l-.1.1a1.7 1.7 0 0 0-.3 1.9 1.7 1.7 0 0 0 1.6 1h.2v4H21a1.7 1.7 0 0 0-1.6 1Z" /></>,
+    mcp: <><circle cx="6" cy="12" r="2.5" /><circle cx="18" cy="6" r="2.5" /><circle cx="18" cy="18" r="2.5" /><path d="m8.4 10.9 7.2-3.8M8.4 13.1l7.2 3.8" /></>,
     settings: <><circle cx="12" cy="12" r="3" /><path d="M19 12a7 7 0 0 0-.1-1l2-1.5-2-3.4-2.4 1a7 7 0 0 0-1.7-1L14.5 3h-5L9 6.1a7 7 0 0 0-1.7 1l-2.4-1-2 3.4 2 1.5a7 7 0 0 0 0 2l-2 1.5 2 3.4 2.4-1a7 7 0 0 0 1.7 1l.5 3.1h5l.5-3.1a7 7 0 0 0 1.7-1l2.4 1 2-3.4-2-1.5a7 7 0 0 0 .1-1Z" /></>,
     menu: <><path d="M4 7h16M4 12h16M4 17h16" /></>,
     sun: <><circle cx="12" cy="12" r="4" /><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4" /></>,
@@ -78,6 +80,7 @@ const toolNavigation = [
   { to: "/skills", label: "任务模板", icon: "knowledge" as const },
   { to: "/knowledge", label: "知识库", icon: "knowledge" as const },
   { to: "/archive", label: "数据备份", icon: "archive" as const },
+  { to: "/mcp", label: "MCP 接入", icon: "mcp" as const },
   { to: "/ai-settings", label: "AI 设置", icon: "providers" as const },
   { to: "/settings", label: "外观与安全", icon: "settings" as const },
 ];
@@ -94,6 +97,7 @@ const pageTitles: Record<string, { title: string; subtitle: string }> = {
   "/skills": { title: "任务模板", subtitle: "维护可重复使用的操作步骤" },
   "/knowledge": { title: "知识库", subtitle: "保存已经核验的处理经验" },
   "/archive": { title: "数据备份", subtitle: "备份或恢复本机数据" },
+  "/mcp": { title: "MCP 接入", subtitle: "让开发工具安全读取项目上下文并诊断流程" },
   "/ai-settings": { title: "AI 设置", subtitle: "配置 AI 服务、模型和临时密钥" },
   "/settings": { title: "外观与安全", subtitle: "切换主题并查看本机运行状态" },
 };
@@ -168,7 +172,7 @@ export function AppShell() {
           </div>
           <div className="sidebar-footer-head"><span className="status-dot" /><strong>{storage.mode === "sqlite" ? "数据已保存在本机" : "当前为预览模式"}</strong></div>
           <small>{policy?.executionMode === "manual-only" ? "只生成建议，由人工执行" : "正在读取安全设置"}</small>
-          <small>v0.4.0 · Build 65</small>
+          <small>v0.4.0 · Build 66</small>
         </div>
       </aside>
 
