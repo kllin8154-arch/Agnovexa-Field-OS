@@ -14,6 +14,10 @@
 secrets.properties
 keystore.properties
 
+# Tauri 构建时生成的多平台图标，仅保留 Windows 构建使用的源图标
+/desktop/src-tauri/icons/*
+!/desktop/src-tauri/icons/icon.png
+
 # 内部研发资料不进入公开仓库
 /docs/
 /design/

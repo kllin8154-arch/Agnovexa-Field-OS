@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { Notice, Panel } from "../components/Ui";
+import { Notice, Pagination, Panel } from "../components/Ui";
 import { TECHNOLOGY_PRESETS, TechnologyMark } from "../components/TechnologyMark";
 import {
   createProject,
@@ -37,6 +37,8 @@ const EMPTY_DRAFT: ProjectDraft = {
   technologies: [],
 };
 
+const PROJECT_PAGE_SIZE = 6;
+
 function toDraft(project: ProjectRecord): ProjectDraft {
   return {
     id: project.id,
@@ -63,6 +65,7 @@ export function ProjectsPage() {
   const [technologyQuery, setTechnologyQuery] = useState("");
   const [customTechnology, setCustomTechnology] = useState("");
   const [showTechnologyPicker, setShowTechnologyPicker] = useState(false);
+  const [page, setPage] = useState(1);
   const [loading, setLoading] = useState(isDesktopRuntime());
   const [status, setStatus] = useState<{ tone: "success" | "danger" | "info"; title: string; message: string } | null>(null);
 
@@ -93,6 +96,20 @@ export function ProjectsPage() {
         .join(" ").toLowerCase().includes(keyword),
     );
   }, [projects, query]);
+
+  const pageCount = Math.max(1, Math.ceil(filteredProjects.length / PROJECT_PAGE_SIZE));
+  const visibleProjects = useMemo(
+    () => filteredProjects.slice((page - 1) * PROJECT_PAGE_SIZE, page * PROJECT_PAGE_SIZE),
+    [filteredProjects, page],
+  );
+
+  useEffect(() => {
+    setPage(1);
+  }, [query]);
+
+  useEffect(() => {
+    if (page > pageCount) setPage(pageCount);
+  }, [page, pageCount]);
 
   const availableGroups = useMemo(() => {
     const keyword = technologyQuery.trim().toLowerCase();
@@ -163,12 +180,15 @@ export function ProjectsPage() {
           title="项目列表"
           actions={<button className="primary-button" type="button" disabled={!isDesktopRuntime()} onClick={startCreate}>新建项目</button>}
         >
-          <input className="search-input project-search" name="projectSearch" value={query} onChange={(event) => setQuery(event.target.value)} placeholder="搜索名称、系统或技术栈" />
+          <div className="registry-toolbar project-registry-toolbar">
+            <input className="search-input project-search" name="projectSearch" value={query} onChange={(event) => setQuery(event.target.value)} placeholder="搜索名称、系统或技术栈" />
+            <span>{filteredProjects.length} 个项目</span>
+          </div>
           {loading ? <div className="loading-state">正在读取项目…</div> : filteredProjects.length === 0 ? (
             <div className="empty-state compact"><div className="empty-state-mark">PJ</div><h2>还没有项目</h2><p>先建立项目档案，再登记服务器资产。</p></div>
           ) : (
             <div className="project-list">
-              {filteredProjects.map((project) => (
+              {visibleProjects.map((project) => (
                 <button key={project.id} type="button" className={draft.id === project.id ? "active" : ""} onClick={() => { setDraft(toDraft(project)); setShowTechnologyPicker(false); }}>
                   <span className="project-list-mark">{project.name.slice(0, 1)}</span>
                   <div><strong>{project.name}</strong><small>{project.code || "未设置项目编码"} · {project.technologies.length} 项技术</small></div>
@@ -177,6 +197,7 @@ export function ProjectsPage() {
               ))}
             </div>
           )}
+          <Pagination page={page} pageCount={pageCount} onChange={setPage} label="项目列表分页" />
         </Panel>
 
         <Panel
@@ -184,18 +205,27 @@ export function ProjectsPage() {
           title={draft.id ? "编辑项目档案" : "建立项目档案"}
           actions={<span className="project-editor-hint">唯一配置入口</span>}
         >
-          <div className="project-editor-grid">
-            <label><span>项目名称</span><input className="text-input" name="projectName" value={draft.name} onChange={(event) => setDraft((current) => ({ ...current, name: event.target.value }))} placeholder="例如：国产化服务平台离线部署" /></label>
-            <label><span>项目编码</span><input className="text-input" name="projectCode" value={draft.code} onChange={(event) => setDraft((current) => ({ ...current, code: event.target.value }))} placeholder="可选" /></label>
-            <label><span>状态</span><select className="select-input" name="projectStatus" value={draft.status} onChange={(event) => setDraft((current) => ({ ...current, status: event.target.value as ProjectDraft["status"] }))}><option value="active">进行中</option><option value="paused">已暂停</option></select></label>
-            <label><span>交付网络</span><select className="select-input" name="deploymentMode" value={draft.deploymentMode} onChange={(event) => setDraft((current) => ({ ...current, deploymentMode: event.target.value as ProjectProfile["deploymentMode"] }))}><option value="offline">完全离线</option><option value="intranet">内网交付</option><option value="hybrid">离线 / 内网混合</option></select></label>
-            <label className="wide-field"><span>项目说明</span><textarea className="evidence-input small" name="projectDescription" value={draft.description} onChange={(event) => setDraft((current) => ({ ...current, description: event.target.value }))} placeholder="说明业务范围、交付目标和非敏感背景。" /></label>
-            <label><span>操作系统</span><input className="text-input" name="operatingSystems" value={draft.operatingSystems} onChange={(event) => setDraft((current) => ({ ...current, operatingSystems: event.target.value }))} placeholder="银河麒麟 V10 SP3 ARM，银河麒麟 V10 SP3 X86_64" /></label>
-            <label><span>CPU 架构</span><input className="text-input" name="architectures" value={draft.architectures} onChange={(event) => setDraft((current) => ({ ...current, architectures: event.target.value }))} placeholder="ARM/aarch64，X86_64" /></label>
-            <label className="wide-field"><span>现场限制与约束</span><textarea className="evidence-input small" name="projectConstraints" value={draft.constraints} onChange={(event) => setDraft((current) => ({ ...current, constraints: event.target.value }))} placeholder="离线介质、网络分区、目录规范、变更窗口、回退要求等；不要填写密码或 Token。" /></label>
-          </div>
+          <section className="project-form-section">
+            <header><span>01</span><div><strong>项目基础</strong><p>先明确项目归属、状态和交付范围。</p></div></header>
+            <div className="project-editor-grid project-basics-grid">
+              <label><span>项目名称</span><input className="text-input" name="projectName" value={draft.name} onChange={(event) => setDraft((current) => ({ ...current, name: event.target.value }))} placeholder="例如：国产化服务平台离线部署" /></label>
+              <label><span>项目编码</span><input className="text-input" name="projectCode" value={draft.code} onChange={(event) => setDraft((current) => ({ ...current, code: event.target.value }))} placeholder="可选" /></label>
+              <label><span>状态</span><select className="select-input" name="projectStatus" value={draft.status} onChange={(event) => setDraft((current) => ({ ...current, status: event.target.value as ProjectDraft["status"] }))}><option value="active">进行中</option><option value="paused">已暂停</option></select></label>
+              <label><span>交付网络</span><select className="select-input" name="deploymentMode" value={draft.deploymentMode} onChange={(event) => setDraft((current) => ({ ...current, deploymentMode: event.target.value as ProjectProfile["deploymentMode"] }))}><option value="offline">完全离线</option><option value="intranet">内网交付</option><option value="hybrid">离线 / 内网混合</option></select></label>
+              <label className="wide-field"><span>项目说明</span><textarea className="evidence-input small" name="projectDescription" value={draft.description} onChange={(event) => setDraft((current) => ({ ...current, description: event.target.value }))} placeholder="说明业务范围、交付目标和非敏感背景。" /></label>
+            </div>
+          </section>
 
-          <section className="technology-editor">
+          <section className="project-form-section">
+            <header><span>02</span><div><strong>现场环境</strong><p>这些信息会固定成为部署、运维和 AI 的项目上下文。</p></div></header>
+            <div className="project-editor-grid project-environment-grid">
+              <label><span>操作系统</span><input className="text-input" name="operatingSystems" value={draft.operatingSystems} onChange={(event) => setDraft((current) => ({ ...current, operatingSystems: event.target.value }))} placeholder="银河麒麟 V10 SP3 ARM，银河麒麟 V10 SP3 X86_64" /></label>
+              <label><span>CPU 架构</span><input className="text-input" name="architectures" value={draft.architectures} onChange={(event) => setDraft((current) => ({ ...current, architectures: event.target.value }))} placeholder="ARM/aarch64，X86_64" /></label>
+              <label className="wide-field"><span>现场限制与约束</span><textarea className="evidence-input small" name="projectConstraints" value={draft.constraints} onChange={(event) => setDraft((current) => ({ ...current, constraints: event.target.value }))} placeholder="离线介质、网络分区、目录规范、变更窗口、回退要求等；不要填写密码或 Token。" /></label>
+            </div>
+          </section>
+
+          <section className="technology-editor project-form-section">
             <header>
               <div><span className="eyebrow">TECHNOLOGY SNAPSHOT</span><h3>项目技术栈</h3><p>可选常用项，也可直接填写任意版本；图标会按名称自动识别。</p></div>
               <button className="secondary-button" type="button" onClick={() => setShowTechnologyPicker((value) => !value)}>{showTechnologyPicker ? "收起选择器" : "添加技术"}</button>

@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { CodeBlock, Notice, Panel, RiskBadge, StatusBadge, Tag } from "../components/Ui";
+import { CodeBlock, Notice, Pagination, Panel, RiskBadge, StatusBadge, Tag } from "../components/Ui";
 import { isDesktopRuntime } from "../lib/repository";
 import {
   createSkillDefinition,
@@ -25,11 +25,14 @@ const EMPTY_FORM = {
   rollbackTemplate: "",
 };
 
+const SKILL_PAGE_SIZE = 6;
+
 export function SkillsPage() {
   const [skills, setSkills] = useState<SkillRecord[]>([]);
   const [query, setQuery] = useState("");
   const [selectedId, setSelectedId] = useState("");
   const [showCreate, setShowCreate] = useState(false);
+  const [page, setPage] = useState(1);
   const [form, setForm] = useState(EMPTY_FORM);
   const [reviewer, setReviewer] = useState("");
   const [evidence, setEvidence] = useState("");
@@ -40,6 +43,20 @@ export function SkillsPage() {
     () => skills.find((skill) => skill.id === selectedId) ?? skills[0],
     [skills, selectedId],
   );
+
+  const pageCount = Math.max(1, Math.ceil(skills.length / SKILL_PAGE_SIZE));
+  const visibleSkills = useMemo(
+    () => skills.slice((page - 1) * SKILL_PAGE_SIZE, page * SKILL_PAGE_SIZE),
+    [skills, page],
+  );
+
+  useEffect(() => {
+    setPage(1);
+  }, [query]);
+
+  useEffect(() => {
+    if (page > pageCount) setPage(pageCount);
+  }, [page, pageCount]);
 
   const load = async () => {
     if (!isDesktopRuntime()) return;
@@ -105,34 +122,32 @@ export function SkillsPage() {
 
       {status && <Notice tone={status.tone} title={status.title}>{status.message}</Notice>}
 
+      {showCreate && (
+        <Panel eyebrow="NEW CONTROLLED SKILL" title="建立 Skill 草稿" className="skill-create-panel" actions={<button className="secondary-button" type="button" onClick={() => setShowCreate(false)}>关闭</button>}>
+          <div className="entity-form skill-form">
+            <label><span>Skill ID</span><input className="text-input" value={form.id} onChange={(event) => setForm((current) => ({ ...current, id: event.target.value }))} placeholder="例如 nginx.offline.install" /></label>
+            <label><span>版本</span><input className="text-input" value={form.version} onChange={(event) => setForm((current) => ({ ...current, version: event.target.value }))} /></label>
+            <label className="wide-field"><span>名称</span><input className="text-input" value={form.name} onChange={(event) => setForm((current) => ({ ...current, name: event.target.value }))} /></label>
+            <label><span>维护人</span><input className="text-input" value={form.owner} onChange={(event) => setForm((current) => ({ ...current, owner: event.target.value }))} /></label>
+            <label><span>风险等级</span><select className="select-input" value={form.riskLevel} onChange={(event) => setForm((current) => ({ ...current, riskLevel: event.target.value as SkillRisk }))}><option>LOW</option><option>MEDIUM</option><option>HIGH</option><option>CRITICAL</option></select></label>
+            <label><span>来源范围</span><select className="select-input" value={form.sourceScope} onChange={(event) => setForm((current) => ({ ...current, sourceScope: event.target.value as "inner" | "public" }))}><option value="inner">内部</option><option value="public">外部待审</option></select></label>
+            <label className="wide-field"><span>skill.yaml / 元数据</span><textarea className="evidence-input small" value={form.metadataYaml} onChange={(event) => setForm((current) => ({ ...current, metadataYaml: event.target.value }))} /></label>
+            <label className="wide-field"><span>提示词</span><textarea className="evidence-input" value={form.promptMarkdown} onChange={(event) => setForm((current) => ({ ...current, promptMarkdown: event.target.value }))} /></label>
+            <label className="wide-field"><span>前置检查模板</span><textarea className="evidence-input" value={form.precheckTemplate} onChange={(event) => setForm((current) => ({ ...current, precheckTemplate: event.target.value }))} /></label>
+            <label className="wide-field"><span>操作模板</span><textarea className="evidence-input" value={form.actionTemplate} onChange={(event) => setForm((current) => ({ ...current, actionTemplate: event.target.value }))} /></label>
+            <label className="wide-field"><span>验证模板</span><textarea className="evidence-input" value={form.verificationTemplate} onChange={(event) => setForm((current) => ({ ...current, verificationTemplate: event.target.value }))} /></label>
+            <label className="wide-field"><span>回滚模板</span><textarea className="evidence-input" value={form.rollbackTemplate} onChange={(event) => setForm((current) => ({ ...current, rollbackTemplate: event.target.value }))} /></label>
+            <div className="form-actions wide-field"><span>保存后状态为 draft，不能直接用于生产。</span><button className="primary-button" type="button" onClick={() => void create()}>保存 Skill 草稿</button></div>
+          </div>
+        </Panel>
+      )}
+
       <div className="skills-layout">
-        <Panel
-          eyebrow="SKILL REGISTRY"
-          title="Skill 专库"
-          actions={
-            <div className="inline-actions">
-              <input className="search-input" value={query} onChange={(event) => setQuery(event.target.value)} placeholder="搜索 Skill ID、名称或组件" />
-              <button className="primary-button" type="button" disabled={!isDesktopRuntime()} onClick={() => setShowCreate((value) => !value)}>新建 Skill</button>
-            </div>
-          }
-        >
-          {showCreate && (
-            <div className="entity-form skill-form">
-              <label><span>Skill ID</span><input className="text-input" value={form.id} onChange={(event) => setForm((current) => ({ ...current, id: event.target.value }))} placeholder="例如 nginx.offline.install" /></label>
-              <label><span>版本</span><input className="text-input" value={form.version} onChange={(event) => setForm((current) => ({ ...current, version: event.target.value }))} /></label>
-              <label className="wide-field"><span>名称</span><input className="text-input" value={form.name} onChange={(event) => setForm((current) => ({ ...current, name: event.target.value }))} /></label>
-              <label><span>维护人</span><input className="text-input" value={form.owner} onChange={(event) => setForm((current) => ({ ...current, owner: event.target.value }))} /></label>
-              <label><span>风险等级</span><select className="select-input" value={form.riskLevel} onChange={(event) => setForm((current) => ({ ...current, riskLevel: event.target.value as SkillRisk }))}><option>LOW</option><option>MEDIUM</option><option>HIGH</option><option>CRITICAL</option></select></label>
-              <label><span>来源范围</span><select className="select-input" value={form.sourceScope} onChange={(event) => setForm((current) => ({ ...current, sourceScope: event.target.value as "inner" | "public" }))}><option value="inner">内部</option><option value="public">外部待审</option></select></label>
-              <label className="wide-field"><span>skill.yaml / 元数据</span><textarea className="evidence-input small" value={form.metadataYaml} onChange={(event) => setForm((current) => ({ ...current, metadataYaml: event.target.value }))} /></label>
-              <label className="wide-field"><span>提示词</span><textarea className="evidence-input" value={form.promptMarkdown} onChange={(event) => setForm((current) => ({ ...current, promptMarkdown: event.target.value }))} /></label>
-              <label className="wide-field"><span>前置检查模板</span><textarea className="evidence-input" value={form.precheckTemplate} onChange={(event) => setForm((current) => ({ ...current, precheckTemplate: event.target.value }))} /></label>
-              <label className="wide-field"><span>操作模板</span><textarea className="evidence-input" value={form.actionTemplate} onChange={(event) => setForm((current) => ({ ...current, actionTemplate: event.target.value }))} /></label>
-              <label className="wide-field"><span>验证模板</span><textarea className="evidence-input" value={form.verificationTemplate} onChange={(event) => setForm((current) => ({ ...current, verificationTemplate: event.target.value }))} /></label>
-              <label className="wide-field"><span>回滚模板</span><textarea className="evidence-input" value={form.rollbackTemplate} onChange={(event) => setForm((current) => ({ ...current, rollbackTemplate: event.target.value }))} /></label>
-              <div className="form-actions wide-field"><span>保存后状态为 draft，不能直接用于生产。</span><button className="secondary-button" type="button" onClick={() => setShowCreate(false)}>取消</button><button className="primary-button" type="button" onClick={() => void create()}>保存 Skill 草稿</button></div>
-            </div>
-          )}
+        <Panel eyebrow="SKILL REGISTRY" title="Skill 专库" className="skill-registry-panel">
+          <div className="registry-toolbar skill-registry-toolbar">
+            <input className="search-input" value={query} onChange={(event) => setQuery(event.target.value)} placeholder="搜索 Skill ID、名称或组件" />
+            <button className="primary-button" type="button" disabled={!isDesktopRuntime()} onClick={() => setShowCreate(true)}>新建 Skill</button>
+          </div>
 
           {loading ? (
             <div className="loading-state">正在读取 Skill 专库…</div>
@@ -140,7 +155,7 @@ export function SkillsPage() {
             <div className="empty-state compact"><div className="empty-state-mark">SK</div><h2>没有匹配 Skill</h2><p>先创建受控模板，或清空搜索条件。</p></div>
           ) : (
             <div className="skill-list">
-              {skills.map((skill) => (
+              {visibleSkills.map((skill) => (
                 <button key={skill.id} type="button" className={`skill-list-item${selected?.id === skill.id ? " active" : ""}`} onClick={() => setSelectedId(skill.id)}>
                   <div><strong>{skill.name}</strong><span>{skill.id} · v{skill.version}</span></div>
                   <div className="inline-actions"><StatusBadge status={skill.status} /><RiskBadge level={skill.riskLevel} /></div>
@@ -148,6 +163,7 @@ export function SkillsPage() {
               ))}
             </div>
           )}
+          <Pagination page={page} pageCount={pageCount} onChange={setPage} label="Skill 列表分页" />
         </Panel>
 
         <Panel eyebrow="CONTROLLED SKILL" title={selected?.name ?? "选择一个 Skill"} actions={selected && <Tag>{selected.sourceScope === "inner" ? "KB-INNER" : "KB-PUBLIC"}</Tag>}>

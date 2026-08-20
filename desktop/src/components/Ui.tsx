@@ -48,6 +48,28 @@ export function Tag({ children }: { children: ReactNode }) {
   return <span className="tag">{children}</span>;
 }
 
+export function Pagination({
+  page,
+  pageCount,
+  onChange,
+  label = "列表分页",
+}: {
+  page: number;
+  pageCount: number;
+  onChange: (page: number) => void;
+  label?: string;
+}) {
+  if (pageCount <= 1) return null;
+
+  return (
+    <nav className="pagination" aria-label={label}>
+      <button type="button" disabled={page <= 1} onClick={() => onChange(page - 1)}>上一页</button>
+      <span><strong>{page}</strong> / {pageCount}</span>
+      <button type="button" disabled={page >= pageCount} onClick={() => onChange(page + 1)}>下一页</button>
+    </nav>
+  );
+}
+
 export function MetricCard({
   label,
   value,

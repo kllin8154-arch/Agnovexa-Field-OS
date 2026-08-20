@@ -185,7 +185,7 @@ export function AppShell() {
         <div className="sidebar-footer">
           <div className="sidebar-footer-head"><span className="status-dot" /><strong>{storage.mode === "sqlite" ? "本地数据已就绪" : "预览模式"}</strong></div>
           <span>{policy?.executionMode === "manual-only" ? "所有目标环境操作由人工执行" : "正在读取运行策略"}</span>
-          <small>v0.4.0 · Windows Desktop</small>
+          <small>v0.4.0 · Build 64 · Windows Desktop</small>
         </div>
       </aside>
 
