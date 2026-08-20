@@ -207,7 +207,7 @@ export function AiWorkspacePage() {
     if (selectedProfile.apiKeyRequired && !hasSessionKey) return setRequestError("当前 Provider 的会话 API Key 尚未载入，请前往 AI 服务配置。");
     if (isDesktopRuntime() && projects.length > 0 && !selectedProjectId) return setRequestError("请先选择项目，系统才能提供可靠上下文。");
     if (task.trim().length < 4) return setRequestError("请描述需要分析的问题，至少 4 个字符。");
-    if (!confirmedPreview) return setRequestError("请先确认已检查脱敏后的发送内容。");
+    if (prepared.redactionCount > 0 && !confirmedPreview) return setRequestError("本次内容发现了可能的敏感信息，请先检查脱敏结果。 ");
 
     const parsedTemperature = temperature.trim() === "" ? undefined : Number(temperature);
     const parsedMaxTokens = maxTokens.trim() === "" ? undefined : Number(maxTokens);
@@ -274,52 +274,38 @@ export function AiWorkspacePage() {
   };
 
   return (
-    <div className="ai-chat-workbench">
-      <div className="ai-session-toolbar">
-        <div className="ai-session-selectors">
+    <div className="ai-chat-workbench simple-ai-workbench">
+      {projects.length === 0 && isDesktopRuntime() ? (
+        <Notice tone="info" title="先创建项目">AI 助手会自动使用项目资料，因此需要先创建一个项目。<div className="notice-next-action"><Link to="/projects">创建项目 →</Link></div></Notice>
+      ) : (
+        <div className="simple-ai-toolbar">
           <label>
-            <span>项目上下文</span>
+            <span>当前项目</span>
             <select className="select-input" name="aiProjectContext" value={selectedProjectId} disabled={contextLoading || projects.length === 0} onChange={(event) => changeProject(event.target.value)}>
-              {projects.length === 0 && <option value="">{isDesktopRuntime() ? "暂无项目" : "桌面版中选择项目"}</option>}
+              {projects.length === 0 && <option value="">桌面版中选择项目</option>}
               {projects.map((project) => <option key={project.id} value={project.id}>{project.name}</option>)}
             </select>
           </label>
-          <label>
-            <span>AI 服务</span>
-            <select className="select-input" name="aiProvider" value={selectedProfile.id} onChange={(event) => setSelectedId(event.target.value)}>
-              {profiles.map((profile) => <option key={profile.id} value={profile.id}>{profile.name} · {profile.model || "未配置模型"}</option>)}
-            </select>
-          </label>
+          <div>
+            <span className={`connection-pill${selectedProfile.apiKeyRequired && !hasSessionKey ? " warning" : ""}`}>{selectedProfile.apiKeyRequired && !hasSessionKey ? "AI 服务需要设置" : "AI 已就绪"}</span>
+            <button className="secondary-button" type="button" onClick={startNewConversation}>新对话</button>
+          </div>
         </div>
-        <div className="ai-session-actions">
-          <span className={`connection-pill${selectedProfile.apiKeyRequired && !hasSessionKey ? " warning" : ""}`}>
-            {selectedProfile.apiKeyRequired ? hasSessionKey ? "服务已就绪" : "缺少会话密钥" : "本地服务"}
-          </span>
-          <button className="secondary-button" type="button" onClick={startNewConversation}>新对话</button>
-          <Link className="text-button" to="/ai-settings">服务设置</Link>
-        </div>
-      </div>
+      )}
 
-      <div className="ai-chat-layout">
-        <section className="ai-conversation-shell" aria-label="AI 对话工作区">
-          <header className="ai-mode-tabs">
-            {modeOptions.map((option) => (
-              <button key={option.value} type="button" className={mode === option.value ? "active" : ""} onClick={() => setMode(option.value)}>
-                <strong>{option.label}</strong><span>{option.description}</span>
-              </button>
-            ))}
-          </header>
+      <section className="ai-conversation-shell simple-ai-shell" aria-label="AI 对话工作区">
+          {projectContext && <div className="simple-ai-context"><span className="status-dot" /><strong>正在使用：{projectContext.projectName}</strong><span>{projectContext.assetCount} 台服务器 · {projectContext.verifiedKnowledgeCount} 条已核验知识</span><Link to="/projects">编辑项目</Link></div>}
 
           <div className="ai-message-list" aria-live="polite">
             {messages.length === 0 ? (
               <div className="ai-chat-empty">
                 <span className="ai-chat-mark" aria-hidden="true"><BrandMark className="brand-mark" /></span>
-                <h2>从项目事实开始，而不是重新填一遍环境</h2>
-                <p>{projectContext ? `已载入“${projectContext.projectName}”的 ${projectContext.assetCount} 项资产和 ${projectContext.verifiedKnowledgeCount} 条已验证知识。` : "选择项目后，系统会自动组织资产、环境快照与已验证知识。"}</p>
+                <h2>直接说你遇到了什么问题</h2>
+                <p>{projectContext ? `项目“${projectContext.projectName}”的资料已经自动带入，不需要重新填写环境。` : "选择项目后，系统会自动带入已有资料。"}</p>
                 <div className="ai-starter-grid">
                   {modeOptions.map((option) => (
                     <button key={option.value} type="button" onClick={() => { setMode(option.value); setTask(option.starter); }}>
-                      <strong>{option.label}</strong><span>{option.starter}</span>
+                      <strong>{option.label}</strong><span>{option.description}</span>
                     </button>
                   ))}
                 </div>
@@ -365,8 +351,13 @@ export function AiWorkspacePage() {
               aria-label="现场问题"
             />
 
-            <details className="ai-evidence-drawer">
-              <summary><span>添加现场证据</span><small>命令、SQL、日志、退出码和补充环境</small></summary>
+            <div className="simple-ai-send-row">
+              <span>Ctrl + Enter 发送</span>
+              <button className="primary-button" type="button" disabled={loading || task.trim().length < 4 || (prepared.redactionCount > 0 && !confirmedPreview)} onClick={() => void submit()}>{loading ? "正在生成…" : "发送"}</button>
+            </div>
+
+            <details className="ai-evidence-drawer simple-ai-options">
+              <summary><span>添加日志、命令或其他资料</span><small>可选</small></summary>
               <div className="ai-evidence-grid">
                 <label><span>补充环境事实</span><textarea className="evidence-input small" name="aiEnvironment" value={environment} onChange={(event) => setEnvironment(event.target.value)} placeholder="只补充项目档案中没有的本次现场事实" /></label>
                 <label><span>成功标准</span><textarea className="evidence-input small" name="aiExpectedResult" value={expectedResult} onChange={(event) => setExpectedResult(event.target.value)} placeholder="服务、端口、接口、日志或业务验收标准" /></label>
@@ -376,8 +367,9 @@ export function AiWorkspacePage() {
               </div>
             </details>
 
-            <details className="ai-send-preview" open={prepared.redactionCount > 0}>
-              <summary><span>发送内容与高级参数</span><small>{prepared.redactionCount} 处敏感内容已处理</small></summary>
+            <details className="ai-send-preview simple-ai-options" open={prepared.redactionCount > 0}>
+              <summary><span>AI 服务与发送设置</span><small>{prepared.redactionCount > 0 ? `${prepared.redactionCount} 处敏感内容已处理` : "可选"}</small></summary>
+              <label className="ai-provider-simple"><span>AI 服务</span><select className="select-input" name="aiProvider" value={selectedProfile.id} onChange={(event) => setSelectedId(event.target.value)}>{profiles.map((profile) => <option key={profile.id} value={profile.id}>{profile.name} · {profile.model || "未配置模型"}</option>)}</select><Link to="/ai-settings">打开 AI 设置</Link></label>
               <pre>{prepared.prompt}</pre>
               <div className="ai-advanced-options">
                 <label><span>温度</span><input className="text-input" name="aiTemperature" value={temperature} onChange={(event) => setTemperature(event.target.value)} placeholder="服务默认" /></label>
@@ -385,33 +377,14 @@ export function AiWorkspacePage() {
               </div>
             </details>
 
-            <footer className="ai-composer-actions">
+            {prepared.redactionCount > 0 && <footer className="ai-composer-actions simple-ai-confirm">
               <label className="ai-safety-confirm">
                 <input type="checkbox" name="aiSafetyConfirmed" checked={confirmedPreview} onChange={(event) => setConfirmedPreview(event.target.checked)} />
-                <span>已检查脱敏预览，不含不应发送的敏感信息</span>
+                <span>我已检查上面的脱敏结果</span>
               </label>
-              <div><span>Ctrl + Enter 发送</span><button className="primary-button" type="button" disabled={loading || task.trim().length < 4} onClick={() => void submit()}>{loading ? "生成中…" : "发送问题"}</button></div>
-            </footer>
+            </footer>}
           </div>
-        </section>
-
-        <aside className="ai-context-panel">
-          <section>
-            <header><span className="status-dot" /><div><small>项目上下文</small><strong>{contextLoading ? "正在载入…" : projectContext?.projectName ?? "未选择项目"}</strong></div></header>
-            {projectContext ? (
-              <>
-                <div className="ai-context-metrics"><div><strong>{projectContext.assetCount}</strong><span>服务器资产</span></div><div><strong>{projectContext.verifiedKnowledgeCount}</strong><span>已验证知识</span></div></div>
-                <details><summary>查看实际注入内容</summary><pre>{projectContext.summary}</pre></details>
-                <Link className="secondary-button wide" to="/projects">编辑项目档案</Link>
-              </>
-            ) : <p>先在项目中心建立项目档案。AI 不会要求你重复填写已经保存的事实。</p>}
-          </section>
-          <section className="ai-boundary-note">
-            <strong>人工执行边界</strong>
-            <p>AI 只返回待审核文字。应用没有 SSH、Shell、SFTP、生产数据库执行或远程写入能力。</p>
-          </section>
-        </aside>
-      </div>
+      </section>
     </div>
   );
 }

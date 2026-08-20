@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, type ReactNode, type SVGProps } from "react";
+import { useEffect, useState, type ReactNode, type SVGProps } from "react";
 import { Link, NavLink, Outlet, useLocation } from "react-router-dom";
 import { BrandMark } from "./BrandMark";
 import { probeStorage, type StorageProbe } from "../lib/database";
@@ -63,51 +63,39 @@ function Icon({ name, ...props }: SVGProps<SVGSVGElement> & { name: IconName }) 
   return <svg {...common} {...props}>{paths[name]}</svg>;
 }
 
-const navGroups = [
-  {
-    label: "现场运维",
-    items: [
-      { to: "/", label: "工作台", icon: "dashboard" as const },
-      { to: "/projects", label: "项目中心", icon: "projects" as const },
-      { to: "/assets", label: "服务器资产", icon: "assets" as const },
-      { to: "/diagnostics", label: "现场诊断", icon: "diagnostics" as const },
-      { to: "/deployments", label: "部署中心", icon: "deploy" as const },
-      { to: "/changes", label: "变更中心", icon: "changes" as const },
-      { to: "/verification", label: "验收中心", icon: "verification" as const },
-    ],
-  },
-  {
-    label: "智能与知识",
-    items: [
-      { to: "/ai", label: "AI 工作台", icon: "ai" as const },
-      { to: "/skills", label: "Skill 专库", icon: "knowledge" as const },
-      { to: "/knowledge", label: "双知识库", icon: "knowledge" as const },
-    ],
-  },
-  {
-    label: "系统",
-    items: [
-      { to: "/archive", label: "数据与归档", icon: "archive" as const },
-      { to: "/ai-settings", label: "AI 服务配置", icon: "providers" as const },
-      { to: "/settings", label: "偏好与安全", icon: "settings" as const },
-    ],
-  },
+const primaryNavigation = [
+  { to: "/", label: "开始", icon: "dashboard" as const },
+  { to: "/projects", label: "项目", icon: "projects" as const },
+  { to: "/deployments", label: "部署", icon: "deploy" as const },
+  { to: "/ai", label: "AI 助手", icon: "ai" as const },
+];
+
+const toolNavigation = [
+  { to: "/assets", label: "服务器", icon: "assets" as const },
+  { to: "/diagnostics", label: "现场检查", icon: "diagnostics" as const },
+  { to: "/changes", label: "执行与变更", icon: "changes" as const },
+  { to: "/verification", label: "验收记录", icon: "verification" as const },
+  { to: "/skills", label: "任务模板", icon: "knowledge" as const },
+  { to: "/knowledge", label: "知识库", icon: "knowledge" as const },
+  { to: "/archive", label: "数据备份", icon: "archive" as const },
+  { to: "/ai-settings", label: "AI 设置", icon: "providers" as const },
+  { to: "/settings", label: "外观与安全", icon: "settings" as const },
 ];
 
 const pageTitles: Record<string, { title: string; subtitle: string }> = {
-  "/": { title: "现场工作台", subtitle: "事实、计划、人工执行、验证与知识沉淀" },
-  "/projects": { title: "项目中心", subtitle: "统一维护项目范围、系统架构、技术栈与现场约束" },
-  "/assets": { title: "服务器资产", subtitle: "维护项目、环境事实与版本化快照" },
-  "/diagnostics": { title: "现场诊断", subtitle: "生成只读采集包，人工执行并回传证据" },
-  "/deployments": { title: "部署中心", subtitle: "离线模板、前置检查、验收与回滚" },
-  "/changes": { title: "变更中心", subtitle: "命令与 SQL 只供审阅、复制和人工执行" },
-  "/verification": { title: "验收中心", subtitle: "文件、服务、网络与业务四层人工验收和关单" },
-  "/ai": { title: "AI 工作台", subtitle: "调用已配置服务，生成方案、排错、SQL 审查与知识草稿" },
-  "/skills": { title: "Skill 专库", subtitle: "结构化模板、人工验证、版本和回滚策略" },
-  "/knowledge": { title: "双知识库", subtitle: "内部优先、外部待审、验证后再沉淀" },
-  "/archive": { title: "数据与归档", subtitle: "SQLite 完整性、可校验备份恢复与部署报告" },
-  "/ai-settings": { title: "AI 服务配置", subtitle: "独立管理 Provider、模型、接口与会话密钥" },
-  "/settings": { title: "偏好与安全", subtitle: "主题、存储状态和不可绕过的人工执行边界" },
+  "/": { title: "开始", subtitle: "跟着提示完成准备，然后开始部署或排查问题" },
+  "/projects": { title: "项目", subtitle: "项目资料只需维护一次，其他功能会自动使用" },
+  "/assets": { title: "服务器", subtitle: "登记项目中的服务器；系统不会自动连接" },
+  "/diagnostics": { title: "现场检查", subtitle: "生成检查命令，人工执行后粘贴结果" },
+  "/deployments": { title: "部署", subtitle: "选择服务器和工作内容，快速创建任务" },
+  "/changes": { title: "执行与变更", subtitle: "查看命令、记录执行结果和回滚信息" },
+  "/verification": { title: "验收记录", subtitle: "记录文件、服务、网络和业务检查结果" },
+  "/ai": { title: "AI 助手", subtitle: "选择项目后直接提问，已有资料会自动带入" },
+  "/skills": { title: "任务模板", subtitle: "维护可重复使用的操作步骤" },
+  "/knowledge": { title: "知识库", subtitle: "保存已经核验的处理经验" },
+  "/archive": { title: "数据备份", subtitle: "备份或恢复本机数据" },
+  "/ai-settings": { title: "AI 设置", subtitle: "配置 AI 服务、模型和临时密钥" },
+  "/settings": { title: "外观与安全", subtitle: "切换主题并查看本机运行状态" },
 };
 
 const themeButtons: Array<{ mode: ThemeMode; icon: IconName; label: string }> = [
@@ -120,9 +108,6 @@ export function AppShell() {
   const location = useLocation();
   const current = pageTitles[location.pathname] ?? pageTitles["/"];
   const { mode, setMode, customTheme } = useTheme();
-  const [collapsed, setCollapsed] = useState(
-    () => window.localStorage.getItem("agnovexa.opsdesk.sidebar.collapsed") === "1",
-  );
   const [storage, setStorage] = useState<StorageProbe>({
     mode: "browser-preview",
     detail: "正在检测本地存储…",
@@ -134,21 +119,8 @@ export function AppShell() {
     void loadRuntimePolicy().then(setPolicy);
   }, []);
 
-  const toggleSidebar = () => {
-    setCollapsed((value) => {
-      const next = !value;
-      window.localStorage.setItem("agnovexa.opsdesk.sidebar.collapsed", next ? "1" : "0");
-      return next;
-    });
-  };
-
-  const modeLabel = useMemo(
-    () => (storage.mode === "sqlite" ? "本地 SQLite" : "浏览器预览"),
-    [storage.mode],
-  );
-
   return (
-    <div className={`app-frame${collapsed ? " sidebar-collapsed" : ""}`}>
+    <div className="app-frame simple-shell">
       <aside className="sidebar">
         <div className="brand-row">
           <Link className="brand" to="/" aria-label="Agnovexa OpsDesk，返回工作台">
@@ -160,57 +132,53 @@ export function AppShell() {
               <span>OpsDesk</span>
             </div>
           </Link>
-          <button className="icon-button sidebar-toggle" type="button" onClick={toggleSidebar} aria-label="收起或展开侧栏"><Icon name="menu" /></button>
         </div>
 
-        <div className="policy-chip" title="系统没有 SSH、Shell、SFTP 或数据库自动执行能力">
+        <div className="policy-chip" title="所有目标环境操作均由用户人工确认并执行">
           <span className="status-dot" />
-          <span>人工执行模式</span>
+          <span>本机使用，不会自动操作服务器</span>
         </div>
 
         <nav className="nav-list" aria-label="主导航">
-          {navGroups.map((group) => (
-            <div className="nav-group" key={group.label}>
-              <div className="nav-group-label">{group.label}</div>
-              {group.items.map((item) => (
-                <NavLink key={item.to} to={item.to} end={item.to === "/"} className={({ isActive }) => `nav-item${isActive ? " active" : ""}`} title={item.label} aria-label={item.label}>
+          {primaryNavigation.map((item) => (
+            <NavLink key={item.to} to={item.to} end={item.to === "/"} className={({ isActive }) => `nav-item${isActive ? " active" : ""}`}>
+              <span className="nav-icon"><Icon name={item.icon} /></span>
+              <span className="nav-label">{item.label}</span>
+            </NavLink>
+          ))}
+
+          <details className="sidebar-tools" open={toolNavigation.some((item) => item.to === location.pathname) || undefined}>
+            <summary><span className="nav-icon"><Icon name="menu" /></span><span>更多功能</span></summary>
+            <div className="sidebar-tool-list">
+              {toolNavigation.map((item) => (
+                <NavLink key={item.to} to={item.to} className={({ isActive }) => `nav-item${isActive ? " active" : ""}`}>
                   <span className="nav-icon"><Icon name={item.icon} /></span>
                   <span className="nav-label">{item.label}</span>
                 </NavLink>
               ))}
             </div>
-          ))}
+          </details>
         </nav>
 
         <div className="sidebar-footer">
-          <div className="sidebar-footer-head"><span className="status-dot" /><strong>{storage.mode === "sqlite" ? "本地数据已就绪" : "预览模式"}</strong></div>
-          <span>{policy?.executionMode === "manual-only" ? "所有目标环境操作由人工执行" : "正在读取运行策略"}</span>
-          <small>v0.4.0 · Build 64 · Windows Desktop</small>
+          <div className="sidebar-theme" aria-label="主题切换">
+            {[...themeButtons, ...(customTheme ? [{ mode: "custom" as const, icon: "palette" as const, label: customTheme.name }] : [])].map((item) => (
+              <button key={item.mode} type="button" className={mode === item.mode ? "active" : ""} onClick={() => setMode(item.mode)} title={item.label} aria-label={item.label}><Icon name={item.icon} /></button>
+            ))}
+          </div>
+          <div className="sidebar-footer-head"><span className="status-dot" /><strong>{storage.mode === "sqlite" ? "数据已保存在本机" : "当前为预览模式"}</strong></div>
+          <small>{policy?.executionMode === "manual-only" ? "只生成建议，由人工执行" : "正在读取安全设置"}</small>
+          <small>v0.4.0 · Build 65</small>
         </div>
       </aside>
 
       <div className="workspace">
         <header className="topbar">
           <div className="topbar-copy">
-            <div className="breadcrumb">AGNOVEXA / OPSDESK</div>
             <h1>{current.title}</h1>
             <p>{current.subtitle}</p>
           </div>
-
-          <div className="topbar-actions">
-            <div className="theme-switch" aria-label="主题切换">
-              {[...themeButtons, ...(customTheme ? [{ mode: "custom" as const, icon: "palette" as const, label: customTheme.name }] : [])].map((item) => (
-                <button key={item.mode} type="button" className={mode === item.mode ? "active" : ""} onClick={() => setMode(item.mode)} title={item.label} aria-label={item.label}><Icon name={item.icon} /></button>
-              ))}
-            </div>
-
-            <div className="runtime-card" title={storage.detail}>
-              <span className="status-dot" />
-              <div><small>数据模式</small><strong>{modeLabel}</strong></div>
-            </div>
-
-            <Link className="primary-button topbar-primary" to="/deployments" aria-label="新建任务"><Icon name="plus" /><span>新建任务</span></Link>
-          </div>
+          <span className="topbar-status" title={storage.detail}><span className="status-dot" />{storage.mode === "sqlite" ? "本机数据" : "预览模式"}</span>
         </header>
 
         <main className="page-content"><Outlet /></main>

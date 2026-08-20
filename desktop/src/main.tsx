@@ -9,6 +9,7 @@ import "./archive.css";
 import "./production.css";
 import "./verification.css";
 import "./design-system.css";
+import "./simple-ui.css";
 
 createRoot(document.getElementById("root")!).render(
   <StrictMode>
